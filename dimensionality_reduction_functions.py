@@ -367,6 +367,34 @@ def goodness_of_fit(w, ndim):
     return gof
 
 
+def plot_gof(w, name, directory, fignum, maintitle="Proportion of Variance Described by Principal Components"):
+    fig = plt.figure(num=fignum, figsize=(8, 4))
+
+    ax = fig.add_subplot(1, 2, 1)
+    ax1 = fig.add_subplot(1, 2, 2)
+
+    normed_w = w / np.sum(w)
+    x = range(len(w))
+
+    ax.scatter(x, normed_w, c='k')
+
+    ax.set_xlabel("Principal Coordinate", fontsize=12)
+    ax.set_ylabel("Proportion of Variance", fontsize=12)
+    ax.set_ylim(-0.1, 1.1)
+
+    cumulative = np.cumsum(normed_w)
+
+    ax1.scatter(x, cumulative)
+    ax1.set_xlabel("Principal Coordinate", fontsize=12)
+    ax1.set_ylabel("Cumulative Proportion of Variance", fontsize=12)
+    ax1.set_ylim(-0.1, 1.1)
+
+    fig.tight_layout()
+    fig.suptitle("%s" % maintitle, fontsize=16)
+    fig.subplots_adjust(top=0.88)
+    fig.savefig(directory + "/" + '%s_proportion_of_variance_%s.png' % (name, fignum))
+
+
 def stress_calc(d, dred, ndim):
     """ Calculate "stress" by determining how far the reconstructed points are from the original points.
     """
@@ -599,6 +627,8 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
         coordinates_pca, coordinates_pca_fit, coordinates_components, coordinates_mean, coordinates_values, \
         x_1_2_3_coords, x_all_coords = pca_dr(n_dim, coords_for_analysis)
 
+        plot_gof(coordinates_values, name, directory, 1)
+
         print("\n(1/4) Done with PCA of %s!" % input_type)
 
         # Reshape n x 3N x 1 arrays into n x N x 3 arrays
@@ -668,6 +698,8 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         # PCA on distance matrix and inverse distance matrix
         d_pca, d_pca_fit, d_components, d_mean, d_values, x_1_2_3_d, x_all_d = pca_dr(n_dim, pca_input)
+
+        plot_gof(d_values, name, directory, 1)
 
         print("\n(3/6) Done with PCA of %s!" % input_type)
 
