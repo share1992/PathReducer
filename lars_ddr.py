@@ -4,9 +4,10 @@ from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from matplotlib.ticker import FormatStrFormatter
 
 
-def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None, lengths=None, new_data=None,
+def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, input_type=None, lengths=None, new_data=None,
               output_directory=None):
     """
     Create a 2D plot or 1D if y == None
@@ -28,7 +29,9 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
         ax0.set_xlabel('P.C. 1', fontsize=16)
         ax0.set_ylabel('P.C. 2', fontsize=16)
         ax0.tick_params(axis='both', labelsize=12)
-        ax0.set_title('Top Two Principal Components', fontsize=18, fontstyle='italic')
+        # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        # ax0.set_title('Top Two Principal Components', fontsize=18, fontstyle='italic')
 
         # ax1 = plt.subplot(gs[1])
 
@@ -42,7 +45,7 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
             z = np.linspace(0.0, 1.0, x_i.shape[0])
             points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
-            lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+            lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
             ax0.add_collection(lc)
 
             # ax0.scatter(x[0],y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
@@ -51,6 +54,21 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
             # ax0.annotate('A', (x[0]+20, y[0]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
             # ax0.annotate('B', (x[20]+20, y[20]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
             # ax0.annotate('C', (x[45]+20, y[45]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
+
+            if x2 is not None and y2 is not None:
+                tck2, u2 = interpolate.splprep([x2, y2], k=1, s=0.0)
+                x_i2, y_i2 = interpolate.splev(np.linspace(0, 1, 1000), tck2)
+
+                # Gradient color change magic
+                z = np.linspace(0.0, 1.0, x_i2.shape[0])
+                points2 = np.array([x_i2, y_i2]).T.reshape(-1, 1, 2)
+                segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
+                lc2 = LineCollection(segments2, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
+                                    linewidth=2)
+                ax0.add_collection(lc2)
+
+                x_i = np.concatenate((x_i, x_i2))
+                y_i = np.concatenate((y_i, y_i2))
 
             # plotting
             if same_axis:
@@ -142,13 +160,19 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
 
         ax1 = fig.add_subplot(gs[1], projection='3d')
 
-        ax1.set_xlabel('P.C. 1', fontsize=16)
-        ax1.set_ylabel('P.C. 2', fontsize=16)
-        ax1.set_zlabel('P.C. 3', fontsize=16)
-        ax1.tick_params(axis='both', labelsize=12)
-        ax1.set_title('Top Three Principal Components', fontsize=18, fontstyle='italic')
+        ax1.set_xlabel('P.C. 1', fontsize=16, labelpad=10)
+        ax1.set_ylabel('P.C. 2', fontsize=16, labelpad=10)
+        ax1.set_zlabel('P.C. 3', fontsize=16, labelpad=10)
+        ax1.tick_params(axis='both', labelsize=12, pad=5)
+        ax1.ticklabel_format(style='sci', scilimits=(-3,3))
+        # ax1.set_title('Top Three Principal Components', fontsize=18, fontstyle='italic')
+        ax1.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax1.dist = 9
+        # ax1.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        # ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        # ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
-        if lengths is None:
+        if lengths is None or sum(lengths) == 0:
 
             # ax1
             # fit spline
@@ -159,8 +183,25 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
             z = np.linspace(0.0, 1.0, x_i.shape[0])
             points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
-            lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+            lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
+                                  linewidth=2)
             ax1.add_collection(lc)
+
+            if x2 is not None and y2 is not None and y12 is not None:
+                tck, u = interpolate.splprep([x2, y2, y12], k=1, s=0.0)
+                x_i2, y_i2, z_i2 = interpolate.splev(np.linspace(0, 1, 1000), tck)
+
+                # Gradient color change magic
+                z2 = np.linspace(0.0, 1.0, x_i2.shape[0])
+                points = np.array([x_i2, y_i2, z_i2]).T.reshape(-1, 1, 3)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                lc2 = Line3DCollection(segments, array=z2, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
+                                      linewidth=2)
+                ax1.add_collection(lc2)
+
+                x_i = np.concatenate((x_i, x_i2))
+                y_i = np.concatenate((y_i, y_i2))
+                z_i = np.concatenate((z_i, z_i2))
 
             # Setting axis limits
             if same_axis:
@@ -249,15 +290,17 @@ def colorplot(x, y=None, y1=None, imgname=None, same_axis=True, input_type=None,
             ax1.add_collection(lca_new)
             ax1.add_collection(lc_new)
 
-    fig.suptitle('Pathway in Reduced Dimensional Space: %s input' % input_type, fontsize=20)
-    fig.tight_layout()
-    fig.subplots_adjust(top=0.80)
+    # fig.suptitle('Pathway in Reduced Dimensional Space: %s input' % input_type, fontsize=20)
+    # fig.suptitle('%s input' % input_type, fontsize=20)
+    fig.tight_layout(pad=5)
+    fig.subplots_adjust(top=0.88, wspace=0.02)
 
     if imgname is None:
         plt.show()
 
     else:
-        plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
+        # plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
+        plt.savefig(output_directory + "/" + imgname + ".png", dpi=600)
         plt.clf()
 
 # ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)

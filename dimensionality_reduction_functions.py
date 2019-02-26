@@ -367,8 +367,9 @@ def goodness_of_fit(w, ndim):
     return gof
 
 
-def plot_gof(w, name, directory, fignum, maintitle="Proportion of Variance Described by Principal Components"):
-    fig = plt.figure(num=fignum, figsize=(8, 4))
+def plot_gof(w, name, directory):
+
+    fig = plt.figure(figsize=(8, 4))
 
     ax = fig.add_subplot(1, 2, 1)
     ax1 = fig.add_subplot(1, 2, 2)
@@ -389,10 +390,13 @@ def plot_gof(w, name, directory, fignum, maintitle="Proportion of Variance Descr
     ax1.set_ylabel("Cumulative Proportion of Variance", fontsize=12)
     ax1.set_ylim(-0.1, 1.1)
 
+    maintitle = "Proportion of Variance Described by Principal Components"
+
     fig.tight_layout()
-    fig.suptitle("%s" % maintitle, fontsize=16)
-    fig.subplots_adjust(top=0.88)
-    fig.savefig(directory + "/" + '%s_proportion_of_variance_%s.png' % (name, fignum))
+    # fig.suptitle("%s" % maintitle, fontsize=16)
+    # fig.subplots_adjust(top=0.88)
+    fig.savefig(directory + "/" + '%s_proportion_of_variance.png' % name, dpi=600)
+    pd.DataFrame(normed_w).to_csv(directory + "/" + name + '_singular_vals.txt', sep='\t', index=None)
 
 
 def stress_calc(d, dred, ndim):
@@ -627,7 +631,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
         coordinates_pca, coordinates_pca_fit, coordinates_components, coordinates_mean, coordinates_values, \
         x_1_2_3_coords, x_all_coords = pca_dr(n_dim, coords_for_analysis)
 
-        plot_gof(coordinates_values, name, directory, 1)
+        plot_gof(coordinates_values, name, directory)
 
         print("\n(1/4) Done with PCA of %s!" % input_type)
 
@@ -699,7 +703,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
         # PCA on distance matrix and inverse distance matrix
         d_pca, d_pca_fit, d_components, d_mean, d_values, x_1_2_3_d, x_all_d = pca_dr(n_dim, pca_input)
 
-        plot_gof(d_values, name, directory, 1)
+        plot_gof(d_values, name + "_D", directory)
 
         print("\n(3/6) Done with PCA of %s!" % input_type)
 
