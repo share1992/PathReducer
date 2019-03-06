@@ -38,7 +38,9 @@ def read_file(f):
             atoms.append(atom)
             coordinates.append([float(x), float(y), float(z)])
         elif len(splitline) == 1:
-            if float(splitline[0]) == float(n_atoms):
+            if type(splitline[0]) == str:
+                pass
+            elif float(splitline[0]) == float(n_atoms):
                 pass
             else:
                 energy = float(splitline[0])
@@ -379,15 +381,15 @@ def plot_gof(w, name, directory):
 
     ax.scatter(x, normed_w, c='k')
 
-    ax.set_xlabel("Principal Coordinate", fontsize=12)
-    ax.set_ylabel("Proportion of Variance", fontsize=12)
+    ax.set_xlabel("Principal Component", fontsize=16)
+    ax.set_ylabel("Proportion of Variance", fontsize=16)
     ax.set_ylim(-0.1, 1.1)
 
     cumulative = np.cumsum(normed_w)
 
     ax1.scatter(x, cumulative)
-    ax1.set_xlabel("Principal Coordinate", fontsize=12)
-    ax1.set_ylabel("Cumulative Proportion of Variance", fontsize=12)
+    ax1.set_xlabel("Principal Component", fontsize=16)
+    ax1.set_ylabel("Cumulative Prop. of Var.", fontsize=16)
     ax1.set_ylim(-0.1, 1.1)
 
     maintitle = "Proportion of Variance Described by Principal Components"
@@ -425,7 +427,7 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components):
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % n, sep='\t', index=None)
 
 
-def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_components, pca_mean, old_data, lengths,
+def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_components, pca_mean, old_data, lengths=None,
                        input_type="Coordinates"):
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
@@ -456,7 +458,8 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
     print("\nResults for %s input will be stored in %s" % (new_traj, directory))
 
     if input_type == "Coordinates":
-        coords_for_analysis = mass_weighted_coords
+        # Align structures using Kabsch algorithm so rotations don't affect PCs
+        coords_for_analysis = kabsch(mass_weighted_coords)
         coords_for_analysis = np.reshape(coords_for_analysis, (coords_for_analysis.shape[0],
                                                                coords_for_analysis.shape[1] *
                                                                coords_for_analysis.shape[2]))
@@ -534,8 +537,12 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
     old_data_df = pd.DataFrame(old_data)
 
-    colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
+    if lengths is not None:
+        colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
               new_data=components_df, lengths=lengths)
+    else:
+        colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
+              new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
 
 
 def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates", filtered_distances=False,
@@ -543,7 +550,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
-    (slower, but potentionally more useful for certain systems that vary in non-linear ways, e.g., torsions).
+    (slower, but potentally more useful for certain systems that vary in non-linear ways, e.g., torsions).
     :param dr_input: xyz file or directory filled with xyz files that will be used to generate the reduced dimensional
     space, str
     :param n_dim: number of dimensions to reduce system to using PCA, int
