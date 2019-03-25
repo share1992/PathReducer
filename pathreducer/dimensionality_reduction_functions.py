@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-
 import numpy as np
 import calculate_rmsd as rmsd
 import pandas as pd

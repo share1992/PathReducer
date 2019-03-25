@@ -1,0 +1,6 @@
+numpy
+rmsd
+pandas
+periodictable
+matplotlib
+sklearn
