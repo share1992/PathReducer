@@ -270,15 +270,18 @@ def kabsch(coords):
     return coords_kabsch
 
 
-def chirality_test(coords, a1, a2, a3, a4):
+def chirality_test(coords, stereo_atoms):
     """ Determines chirality of structure so it is consistent throughout the generated reduced dimensional
     IRC/trajectory.
     :param coords: xyz coordinates along IRC or trajectory
-    :param a[n]: 4 atom numbers that represent groups around a chiral center
+    :param stereo_atoms: list of 4 atom numbers that represent groups around a chiral center
     :type coords: numpy array
-    :type a[n]: integers
+    :type stereo_atoms: list
     """
-
+    a1 = stereo_atoms[0]
+    a2 = stereo_atoms[1]
+    a3 = stereo_atoms[2]
+    a4 = stereo_atoms[3]
     signs = []
     for i in range(len(coords)):
         m = np.ones((4, 4))
@@ -295,29 +298,35 @@ def chirality_test(coords, a1, a2, a3, a4):
 
     negs = np.where(np.array(signs) < 0)
     poss = np.where(np.array(signs) > 0)
+    zeros = np.where(np.array(signs) == 0)
 
     print("\nDetermining chirality of structure at each point of file...")
     print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
     print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
+    print("Number of structures with zero determinant (planar): %s" % np.size(zeros))
     print("Total structures: %s" % len(signs))
 
-    return negs, poss, signs
+    return negs, poss, zeros, signs
 
 
-def chirality_changes_new(coords_reconstr, a1, a2, a3, a4, signs_orig):
+def chirality_changes_new(coords_reconstr, stereo_atoms, signs_orig):
     """ Determines chirality of structure along original trajectory and reconstructed reduced dimensional trajectory
      and switches inconsistencies along reduced dimensional IRC/trajectory.
     :param coords_reconstr: coordinates of trajectory in the reduced dimensional space
-    :param a1, a2, a3, a4: indexes of atoms surrounding stereogenic center
+    :param stereo_atoms: list of 4 indexes of atoms surrounding stereogenic center
     :param signs_orig: signs (positive or negative) that represent chirality at given point along original trajectory,
     numpy array
     """
 
-    pos, neg, signs_reconstr = chirality_test(coords_reconstr, a1, a2, a3, a4)
+    pos, neg, zero, signs_reconstr = chirality_test(coords_reconstr, stereo_atoms)
     coords = coords_reconstr
 
     for i in range(len(signs_orig)):
-        if signs_reconstr[i] != signs_orig[i]:
+        if signs_orig[i] == 0:
+            # If molecule begins planar but reconstruction of PCs are not, keep chirality consistent thru PC
+            if i > 0 and signs_reconstr[i] != signs_reconstr[0]:
+                coords[i] = -coords[i]
+        elif signs_reconstr[i] != signs_orig[i]:
             # Switch sign of signs_reconstr by reflecting coordinates of that point
             # print("Switching chirality of structure %s...\n" % i)
 
@@ -427,7 +436,7 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components):
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % n, sep='\t', index=None)
 
 
-def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_components, pca_mean, old_data, lengths=None,
+def transform_new_data(new_traj, directory, n_dim, stereo_atoms, pca_fit, pca_components, pca_mean, old_data, lengths=None,
                        input_type="Coordinates", mass_weighting=False):
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
@@ -436,7 +445,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
     :param new_traj: new trajectory (xyz file location), str
     :param directory: output directory, str
     :param n_dim: number of dimensions of the reduced dimensional space, int
-    :param a1, a2, a3, a4: four atoms surrounding stereogenic center, ints
+    :param stereo_atoms: list of indexes of 4 atoms surrounding stereogenic center, ints
     :param pca_fit: fit from PCA on training data
     :param pca_components: components from PCA on training data, array
     :param pca_mean: mean of input data to PCA (mean structure as coords or distances), array
@@ -458,7 +467,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
     else:
         coords_for_analysis = coordinates_shifted
 
-    negatives, positives, all_signs = chirality_test(coordinates_all, a1, a2, a3, a4)
+    negatives, positives, zeroes, all_signs = chirality_test(coordinates_all, stereo_atoms)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -522,7 +531,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
             no_mass_weighting_coords_cartesian_x = [coords_cartesian_x[i] for i in range(n_dim)]
 
         xyz_file_coords_cartesian = \
-            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], a1, a2, a3, a4,
+            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], stereo_atoms,
                                                           all_signs)) for i in range(n_dim)]
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
@@ -539,7 +548,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
         # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
         xyz_file_coords_cartesian_all_x = \
-            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, a1, a2, a3, a4,
+            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, stereo_atoms,
                                                          all_signs))
 
         xyz_file_coords_cartesian_all_x = np.reshape(xyz_file_coords_cartesian_all_x,
@@ -566,7 +575,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
     #           new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
 
 
-def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates", mass_weighting=False,
+def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinates", mass_weighting=False,
                filtered_distances=False, n_top_atoms=50, dist_threshold=7.0, number_of_dists=10):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
@@ -575,7 +584,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
     :param dr_input: xyz file or directory filled with xyz files that will be used to generate the reduced dimensional
     space, str
     :param n_dim: number of dimensions to reduce system to using PCA, int
-    :param a1, a2, a3, a4: atom indexes surrounding stereogenic center, ints
+    :param stereo_atoms: list of 4 atom indexes surrounding stereogenic center, ints
     :param input_type: input type to PCA, either "Coordinates" or "Distances, str
     :param filtered_distances: whether, after "Coordinates" input to PCA, important distances should be determined
     using the filter_top_distances method, bool
@@ -611,7 +620,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         print("\nTotal number of atoms: %s\n" % coordinates_all.shape[1])
 
-        negatives, positives, all_signs = chirality_test(coordinates_all, a1, a2, a3, a4)
+        negatives, positives, zeroes, all_signs = chirality_test(coordinates_all, stereo_atoms)
 
         # Creating a directory for output (if directory doesn't already exist)
         directory = name + "_output"
@@ -654,7 +663,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         print("\nTotal number of atoms per file: %s" % coordinates_all.shape[1])
 
-        negatives, positives, all_signs = chirality_test(coords_for_analysis, a1, a2, a3, a4)
+        negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
 
         # Creating a directory for output (if directory doesn't already exist)
         directory = os.path.basename(dr_input) + "_output"
@@ -777,7 +786,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
             no_mass_weighting_coords_cartesian_x = [coords_cartesian_x[i] for i in range(n_dim)]
 
         xyz_file_coords_cartesian = \
-            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], a1, a2, a3, a4,
+            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], stereo_atoms,
                                                           all_signs)) for i in range(n_dim)]
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
@@ -795,7 +804,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
         xyz_file_coords_cartesian_all_x = \
-            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, a1, a2, a3, a4,
+            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, stereo_atoms,
                                                          all_signs))
 
         xyz_file_coords_cartesian_all_x = np.reshape(xyz_file_coords_cartesian_all_x,
