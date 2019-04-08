@@ -436,8 +436,8 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components):
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % n, sep='\t', index=None)
 
 
-def transform_new_data(new_traj, directory, n_dim, stereo_atoms, pca_fit, pca_components, pca_mean, old_data, lengths=None,
-                       input_type="Coordinates", mass_weighting=False):
+def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_mean, old_data,
+                       stereo_atoms=[1, 2, 3, 4], lengths=None, input_type="Coordinates", mass_weighting=False):
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
     conducted and transforms this new data into the reduced dimensional space. Generates a plot, with the new data atop
