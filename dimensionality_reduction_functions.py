@@ -419,21 +419,34 @@ def stress_calc(d, dred, ndim):
     return stress
 
 
-def print_distance_coeffs_to_files(directory, n_dim, name, pca_components):
-
-    num_atoms = int(pca_components.shape[1]/3)
+def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_atoms):
 
     for n in range(n_dim):
         d = []
-        for k in range(num_atoms):
+        for k in range(len(pca_components[n])):
             i, j = calc_ij(k, num_atoms)
-            coeff = pca_components[k]
+            coeff = pca_components[n][k]
             d.append({'atom 1': i, 'atom 2': j, 'Coefficient of Distance': coeff})
 
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % n, sep='\t', index=None)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
+
+
+def print_distance_coeffs_to_files_evs(directory, n_dim, name, pca_components, pca_values, num_atoms):
+
+    for n in range(n_dim):
+        d = []
+        for k in range(len(pca_components[n])):
+            i, j = calc_ij(k, num_atoms)
+            coeff = pca_values[n]*pca_components[n][k]
+            d.append({'atom 1': i, 'atom 2': j, 'Coefficient of Distance': coeff})
+
+        d_df = pd.DataFrame(d)
+
+        sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components_evs.txt' % (n+1), sep='\t', index=None)
 
 
 def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_mean, old_data,
