@@ -1,2 +1,2 @@
 from .main import *
-from . import filereaders
+from . import filereaders, utils
