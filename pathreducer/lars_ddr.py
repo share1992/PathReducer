@@ -25,7 +25,7 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         # gs = GridSpec(2, 1, height_ratios=[2, 1])
         gs = GridSpec(1, 2)
         ax0 = fig.add_subplot(gs[0])
-        # ax0.grid(True)
+        ax0.grid(True)
 
         ax0.set_xlabel('P.C. 1', fontsize=16)
         ax0.set_ylabel('P.C. 2', fontsize=16)
@@ -49,6 +49,11 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
             ax0.add_collection(lc)
 
+            # Malonaldehyde
+            # ax0.scatter(x[0], y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
+            # ax0.scatter(x[12], y[12], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
+            # ax0.scatter(x[24], y[24], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
+            # SN2
             # ax0.scatter(x[0],y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
             # ax0.scatter(x[15],y[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
             # ax0.scatter(x[24],y[24], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
@@ -182,6 +187,11 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         # ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
+        # Malonaldehyde
+        # ax1.scatter(x[0], y[0], y1[0], edgecolors='k', facecolors='none', s=50, zorder=10)
+        # ax1.scatter(x[12], y[12], y1[12], edgecolors='k', facecolors='none', s=50, zorder=10)
+        # ax1.scatter(x[24], y[24], y1[24], edgecolors='k', facecolors='none', s=50, zorder=10)
+        # SN2
         # ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
         # ax1.scatter(x[15],y[15],y1[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
         # ax1.scatter(x[24],y[24],y1[24], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)

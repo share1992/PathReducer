@@ -266,15 +266,18 @@ def kabsch(coords):
     return coords_kabsch
 
 
-def chirality_test(coords, a1, a2, a3, a4):
+def chirality_test(coords, stereo_atoms):
     """ Determines chirality of structure so it is consistent throughout the generated reduced dimensional
     IRC/trajectory.
     :param coords: xyz coordinates along IRC or trajectory
-    :param a[n]: 4 atom numbers that represent groups around a chiral center
+    :param stereo_atoms: list of 4 atom numbers that represent groups around a chiral center
     :type coords: numpy array
-    :type a[n]: integers
+    :type stereo_atoms: list
     """
-
+    a1 = stereo_atoms[0]
+    a2 = stereo_atoms[1]
+    a3 = stereo_atoms[2]
+    a4 = stereo_atoms[3]
     signs = []
     for i in range(len(coords)):
         m = np.ones((4, 4))
@@ -291,29 +294,35 @@ def chirality_test(coords, a1, a2, a3, a4):
 
     negs = np.where(np.array(signs) < 0)
     poss = np.where(np.array(signs) > 0)
+    zeros = np.where(np.array(signs) == 0)
 
     print("\nDetermining chirality of structure at each point of file...")
     print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
     print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
+    print("Number of structures with zero determinant (planar): %s" % np.size(zeros))
     print("Total structures: %s" % len(signs))
 
-    return negs, poss, signs
+    return negs, poss, zeros, signs
 
 
-def chirality_changes_new(coords_reconstr, a1, a2, a3, a4, signs_orig):
+def chirality_changes_new(coords_reconstr, stereo_atoms, signs_orig):
     """ Determines chirality of structure along original trajectory and reconstructed reduced dimensional trajectory
      and switches inconsistencies along reduced dimensional IRC/trajectory.
     :param coords_reconstr: coordinates of trajectory in the reduced dimensional space
-    :param a1, a2, a3, a4: indexes of atoms surrounding stereogenic center
+    :param stereo_atoms: list of 4 indexes of atoms surrounding stereogenic center
     :param signs_orig: signs (positive or negative) that represent chirality at given point along original trajectory,
     numpy array
     """
 
-    pos, neg, signs_reconstr = chirality_test(coords_reconstr, a1, a2, a3, a4)
+    pos, neg, zero, signs_reconstr = chirality_test(coords_reconstr, stereo_atoms)
     coords = coords_reconstr
 
     for i in range(len(signs_orig)):
-        if signs_reconstr[i] != signs_orig[i]:
+        if signs_orig[i] == 0:
+            # If molecule begins planar but reconstruction of PCs are not, keep chirality consistent thru PC
+            if i > 0 and signs_reconstr[i] != signs_reconstr[0]:
+                coords[i] = -coords[i]
+        elif signs_reconstr[i] != signs_orig[i]:
             # Switch sign of signs_reconstr by reflecting coordinates of that point
             # print("Switching chirality of structure %s...\n" % i)
 
@@ -406,25 +415,38 @@ def stress_calc(d, dred, ndim):
     return stress
 
 
-def print_distance_coeffs_to_files(directory, n_dim, name, pca_components):
-
-    num_atoms = int(pca_components.shape[1]/3)
+def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_atoms):
 
     for n in range(n_dim):
         d = []
-        for k in range(num_atoms):
+        for k in range(len(pca_components[n])):
             i, j = calc_ij(k, num_atoms)
-            coeff = pca_components[k]
+            coeff = pca_components[n][k]
             d.append({'atom 1': i, 'atom 2': j, 'Coefficient of Distance': coeff})
 
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % n, sep='\t', index=None)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
 
 
-def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_components, pca_mean, old_data, lengths=None,
-                       input_type="Coordinates"):
+def print_distance_coeffs_to_files_evs(directory, n_dim, name, pca_components, pca_values, num_atoms):
+
+    for n in range(n_dim):
+        d = []
+        for k in range(len(pca_components[n])):
+            i, j = calc_ij(k, num_atoms)
+            coeff = pca_values[n]*pca_components[n][k]
+            d.append({'atom 1': i, 'atom 2': j, 'Coefficient of Distance': coeff})
+
+        d_df = pd.DataFrame(d)
+
+        sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components_evs.txt' % (n+1), sep='\t', index=None)
+
+
+def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_mean, old_data,
+                       stereo_atoms=[1, 2, 3, 4], lengths=None, input_type="Coordinates", mass_weighting=False):
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
     conducted and transforms this new data into the reduced dimensional space. Generates a plot, with the new data atop
@@ -432,7 +454,7 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
     :param new_traj: new trajectory (xyz file location), str
     :param directory: output directory, str
     :param n_dim: number of dimensions of the reduced dimensional space, int
-    :param a1, a2, a3, a4: four atoms surrounding stereogenic center, ints
+    :param stereo_atoms: list of indexes of 4 atoms surrounding stereogenic center, ints
     :param pca_fit: fit from PCA on training data
     :param pca_components: components from PCA on training data, array
     :param pca_mean: mean of input data to PCA (mean structure as coords or distances), array
@@ -446,8 +468,15 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
     name, energies, atoms, coordinates_all = read_file(new_traj)
     coordinates_shifted = set_atom_one_to_origin(coordinates_all)
-    atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
-    negatives, positives, all_signs = chirality_test(coordinates_all, a1, a2, a3, a4)
+
+    if mass_weighting is True:
+        atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
+        coords_for_analysis = mass_weighted_coords
+
+    else:
+        coords_for_analysis = coordinates_shifted
+
+    negatives, positives, zeroes, all_signs = chirality_test(coordinates_all, stereo_atoms)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -455,13 +484,13 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
     if input_type == "Coordinates":
         # Align structures using Kabsch algorithm so rotations don't affect PCs
-        coords_for_analysis = kabsch(mass_weighted_coords)
+        coords_for_analysis = kabsch(coords_for_analysis)
         coords_for_analysis = np.reshape(coords_for_analysis, (coords_for_analysis.shape[0],
                                                                coords_for_analysis.shape[1] *
                                                                coords_for_analysis.shape[2]))
 
     elif input_type == "Distances":
-        d2 = generate_ds(mass_weighted_coords)
+        d2 = generate_ds(coords_for_analysis)
         coords_for_analysis = reshape_ds(d2)
 
     components = pca_fit.transform(coords_for_analysis)
@@ -484,11 +513,16 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
         x_all = np.reshape(x_all, (1, x_all.shape[0], int(x_all.shape[1] / 3), 3))
 
-        # Remove mass-weighting of coordinates, individual Xs
-        no_mass_weighting_xyz_coords = [unmass_weighting_pt(atoms, x_1_2_3[i]) for i in range(n_dim)]
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, individual Xs
+            no_mass_weighting_xyz_coords = [unmass_weighting_pt(atoms, x_1_2_3[i]) for i in range(n_dim)]
 
-        # Remove mass-weighting of coordinates, all Xs combined into one array
-        no_mass_weighting_xyz_coords_x_all = unmass_weighting_pt(atoms, x_all)
+            # Remove mass-weighting of coordinates, all Xs combined into one array
+            no_mass_weighting_xyz_coords_x_all = unmass_weighting_pt(atoms, x_all)
+
+        else:
+            no_mass_weighting_xyz_coords = [x_1_2_3[i] for i in range(n_dim)]
+            no_mass_weighting_xyz_coords_x_all = x_all
 
         make_xyz_files(directory + "/" + name, atoms, no_mass_weighting_xyz_coords)
         make_xyz_files(directory + "/" + name + "_all", atoms, no_mass_weighting_xyz_coords_x_all)
@@ -498,12 +532,15 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
         coords_cartesian_x = [[distance_matrix_to_coords_alt_vector(x_1_2_3[i][k])
                                for k in range(x_1_2_3.shape[1])] for i in range(x_1_2_3.shape[0])]
 
-        # Remove mass-weighting of coordinates, individual Xs
-        no_mass_weighting_coords_cartesian_x = [unmass_weighting_pt(atoms, coords_cartesian_x[i])
-                                                for i in range(n_dim)]
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, individual Xs
+            no_mass_weighting_coords_cartesian_x = [unmass_weighting_pt(atoms, coords_cartesian_x[i])
+                                                    for i in range(n_dim)]
+        else:
+            no_mass_weighting_coords_cartesian_x = [coords_cartesian_x[i] for i in range(n_dim)]
 
         xyz_file_coords_cartesian = \
-            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], a1, a2, a3, a4,
+            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], stereo_atoms,
                                                           all_signs)) for i in range(n_dim)]
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
@@ -511,12 +548,16 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
         coords_cartesian_x_all = [distance_matrix_to_coords_alt_vector(x_all[i])
                                   for i in range(np.array(x_all).shape[0])]
 
-        # Remove mass-weighting of coordinates, all Xs combined into one array
-        no_mass_weighting_coords_cartesian_all_x = unmass_weighting_pt(atoms, coords_cartesian_x_all)
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, all Xs combined into one array
+            no_mass_weighting_coords_cartesian_all_x = unmass_weighting_pt(atoms, coords_cartesian_x_all)
+        else:
+            no_mass_weighting_coords_cartesian_all_x = coords_cartesian_x_all
+
 
         # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
         xyz_file_coords_cartesian_all_x = \
-            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, a1, a2, a3, a4,
+            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, stereo_atoms,
                                                          all_signs))
 
         xyz_file_coords_cartesian_all_x = np.reshape(xyz_file_coords_cartesian_all_x,
@@ -533,16 +574,18 @@ def transform_new_data(new_traj, directory, n_dim, a1, a2, a3, a4, pca_fit, pca_
 
     old_data_df = pd.DataFrame(old_data)
 
-    if lengths is not None:
-        colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
-              new_data=components_df, lengths=lengths)
-    else:
-        colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
-              new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
+    return components_df
+
+    # if lengths is not None:
+    #     colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
+    #           new_data=components_df, lengths=lengths)
+    # else:
+    #     colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
+    #           new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
 
 
-def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates", filtered_distances=False,
-               n_top_atoms=50, dist_threshold=7.0, number_of_dists=10):
+def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinates", mass_weighting=False,
+               filtered_distances=False, n_top_atoms=50, dist_threshold=7.0, number_of_dists=10):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -550,7 +593,7 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
     :param dr_input: xyz file or directory filled with xyz files that will be used to generate the reduced dimensional
     space, str
     :param n_dim: number of dimensions to reduce system to using PCA, int
-    :param a1, a2, a3, a4: atom indexes surrounding stereogenic center, ints
+    :param stereo_atoms: list of 4 atom indexes surrounding stereogenic center, ints
     :param input_type: input type to PCA, either "Coordinates" or "Distances, str
     :param filtered_distances: whether, after "Coordinates" input to PCA, important distances should be determined
     using the filter_top_distances method, bool
@@ -572,13 +615,21 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         name, energies, atoms, coordinates_all = read_file(dr_input)
         coordinates_shifted = set_atom_one_to_origin(coordinates_all)
-        atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
 
-        coords_for_analysis = mass_weighted_coords
+        if mass_weighting is True:
+            atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
+            coords_for_analysis = mass_weighted_coords
+
+            name = name + "_MW"
+
+        else:
+            coords_for_analysis = coordinates_shifted
+
+            name = name + "_noMW"
 
         print("\nTotal number of atoms: %s\n" % coordinates_all.shape[1])
 
-        negatives, positives, all_signs = chirality_test(coordinates_all, a1, a2, a3, a4)
+        negatives, positives, zeroes, all_signs = chirality_test(coordinates_all, stereo_atoms)
 
         # Creating a directory for output (if directory doesn't already exist)
         directory = name + "_output"
@@ -597,20 +648,31 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
         for xyz_file in xyz_files:
             i = i + 1
             name, energies, atoms, coordinates_all = read_file(xyz_file)
-            names.append(name)
             coordinates_shifted = set_atom_one_to_origin(coordinates_all)
-            atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
 
-            lengths.append(mass_weighted_coords.shape[0])
+            if mass_weighting is True:
+                atom_masses, mass_weighted_coords = mass_weighting_pt(atoms, coordinates_shifted)
+                coords_for_analysis_single = mass_weighted_coords
+
+                name = name + "_MW"
+
+            else:
+                coords_for_analysis_single = coordinates_shifted
+
+                name = name + "_noMW"
+
+            names.append(name)
+
+            lengths.append(coords_for_analysis_single.shape[0])
 
             if i == 1:
-                coords_for_analysis = mass_weighted_coords
+                coords_for_analysis = coords_for_analysis_single
             else:
-                coords_for_analysis = np.concatenate((coords_for_analysis, mass_weighted_coords), axis=0)
+                coords_for_analysis = np.concatenate((coords_for_analysis, coords_for_analysis_single), axis=0)
 
         print("\nTotal number of atoms per file: %s" % coordinates_all.shape[1])
 
-        negatives, positives, all_signs = chirality_test(coords_for_analysis, a1, a2, a3, a4)
+        negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
 
         # Creating a directory for output (if directory doesn't already exist)
         directory = os.path.basename(dr_input) + "_output"
@@ -648,11 +710,16 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         print("\n(3/4) Done making top %s combined principal coordinates, X_all!" % n_dim)
 
-        # Remove mass-weighting of coordinates, individual Xs
-        no_mass_weighting_xyz_coords = [unmass_weighting_pt(atoms, x_1_2_3_coords[i]) for i in range(n_dim)]
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, individual Xs
+            no_mass_weighting_xyz_coords = [unmass_weighting_pt(atoms, x_1_2_3_coords[i]) for i in range(n_dim)]
 
-        # Remove mass-weighting of coordinates, all Xs combined into one array/reduced dimensional trajectory
-        no_mass_weighting_xyz_coords_x_all = unmass_weighting_pt(atoms, x_all_coords)
+            # Remove mass-weighting of coordinates, all Xs combined into one array/reduced dimensional trajectory
+            no_mass_weighting_xyz_coords_x_all = unmass_weighting_pt(atoms, x_all_coords)
+
+        else:
+            no_mass_weighting_xyz_coords = [x_1_2_3_coords[i] for i in range(n_dim)]
+            no_mass_weighting_xyz_coords_x_all = x_all_coords
 
         # Make xyz files from final coordinate arrays
         if os.path.isfile(dr_input) is True:
@@ -720,12 +787,15 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         print("\n(4/6) Done with converting distance matrices back to coordinates (X1-3)!")
 
-        # Remove mass-weighting of coordinates, individual Xs
-        no_mass_weighting_coords_cartesian_x = [unmass_weighting_pt(atoms, coords_cartesian_x[i])
-                                                for i in range(n_dim)]
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, individual Xs
+            no_mass_weighting_coords_cartesian_x = [unmass_weighting_pt(atoms, coords_cartesian_x[i])
+                                                    for i in range(n_dim)]
+        else:
+            no_mass_weighting_coords_cartesian_x = [coords_cartesian_x[i] for i in range(n_dim)]
 
         xyz_file_coords_cartesian = \
-            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], a1, a2, a3, a4,
+            [kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_x[i], stereo_atoms,
                                                           all_signs)) for i in range(n_dim)]
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
@@ -735,12 +805,15 @@ def dr_routine(dr_input, n_dim, a1=1, a2=2, a3=3, a4=4, input_type="Coordinates"
 
         print("\n(5/6) Done with converting distance matrices back to coordinates (X_all)!")
 
-        # Remove mass-weighting of coordinates, all Xs combined into one array
-        no_mass_weighting_coords_cartesian_all_x = unmass_weighting_pt(atoms, coords_cartesian_x_all)
+        if mass_weighting is True:
+            # Remove mass-weighting of coordinates, all Xs combined into one array
+            no_mass_weighting_coords_cartesian_all_x = unmass_weighting_pt(atoms, coords_cartesian_x_all)
+        else:
+            no_mass_weighting_coords_cartesian_all_x = coords_cartesian_x_all
 
         # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
         xyz_file_coords_cartesian_all_x = \
-            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, a1, a2, a3, a4,
+            kabsch(chirality_changes_new(no_mass_weighting_coords_cartesian_all_x, stereo_atoms,
                                                          all_signs))
 
         xyz_file_coords_cartesian_all_x = np.reshape(xyz_file_coords_cartesian_all_x,
