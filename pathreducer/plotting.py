@@ -9,15 +9,15 @@ from matplotlib.ticker import FormatStrFormatter
 
 def _plot_1d(x):
     plt.figure(figsize=(8,4))
-    ax = plt.axes()[0]
-    ax.yaxis.grid(True, alpha=0.7)
+    ax = plt.axes[0]
+    ax.yaxis.grid(True, alpha=0.4)
     ax.set_xlabel('Frame', fontsize=16)
     ax.set_ylabel('PC', fontsize=16)
     ax.tick_params(axis='both', labelsize=12)
     plt.plot(range(len(x)), x)
     return plt
 
-def _plot_2d(x, y, fig=None):
+def _plot_2d(x, y, smooth=False, fig=None):
     """
     Plots a 2D plot of x vs y. Colors the datapoints from yellow to purple 
     to show time progression. Can be called multiple times by passing the return
@@ -27,17 +27,22 @@ def _plot_2d(x, y, fig=None):
         fig = plt.figure(figsize=(10, 5))
         gs = GridSpec(1, 2)
         ax0 = fig.add_subplot(gs[0])
-        ax0.grid(True, alpha=0.7)
-        first_plot = False
-    else:
-        ax0 = fig.axes()[0]
+        ax0.grid(True, alpha=0.4)
         first_plot = True
+    else:
+        ax0 = fig.axes[0]
+        first_plot = False
 
     ax0.set_xlabel('PC1', fontsize=16)
     ax0.set_ylabel('PC2', fontsize=16)
     ax0.tick_params(axis='both', labelsize=12)
-    # Fit spline. k=1 makes the interpolation linear
-    tck, u = interpolate.splprep([x, y], k=1, s=0.0)
+
+    if smooth:
+        k = 2
+    else:
+        k = 1
+
+    tck, u = interpolate.splprep([x, y], k=k, s=0.0)
     x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
 
     # Gradient color change magic
@@ -343,9 +348,7 @@ def _plot_3d():
         ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
 # TODO support for multiple plots on top of each other
-def colorplot(x, smooth=False, image_name=None, 
-        same_axis=True, input_type=None, lengths=None, new_data=None,
-              output_directory=None):
+def colorplot(x, smooth=False, image_name=None):
     """
     Create a 1-3D plot.
 
@@ -357,23 +360,55 @@ def colorplot(x, smooth=False, image_name=None,
                        instead.
     :type image_name: string
     """
-    if x.ndim > 2:
-        raise SystemExit("Error. Expected a 2D array. Got %dD." % x.ndim)
-    elif x.ndim == 0:
-        raise SystemExit("Error. Got empty array.")
+    def get_dimensionality(x):
+        if isinstance(x, list) or (isinstance(x, np.ndarray) and (x.dtype == object or x.ndim == 3)):
+            if len(x) > 0 and isinstance(x[0], np.ndarray):
+                array_sizes = [array.ndim for array in x]
+                if len(set(array_sizes)) > 1:
+                    raise SystemExit("Error. Expected and 1D or 2D array or list of arrays of similar shape.")
+                if array_sizes[0] > 2 or array_sizes[0] < 1:
+                    raise SystemExit("Error. Expected an 1D or 2D array. Got %dD." % x.ndim)
+                if array_sizes[0] == 1:
+                    m = 1
+                else:
+                    dimension_sizes = [array.shape[1] for array in x]
+                    if len(set(dimension_sizes)) > 1:
+                        raise SystemExit("Error. Inconsistent dimensionality of arrays.")
 
+                    m = x[0].shape[1]
+                return m, True
+            else:
+                raise SystemExit("Error. Expected an 1D or 2D array or list of arrays of similar shape.")
+        elif x.ndim > 2 or x.ndim == 0:
+            raise SystemExit("Error. Expected an 1D or 2D array. Got %dD." % x.ndim)
+        elif x.ndim == 1:
+            m = 1
+        else:
+            m = x.shape[1]
 
-    if x.ndim == 1:
-        m = 1
-    else:
-        m = x.shape[1]
+        return m, False
 
+    m, multi_array = get_dimensionality(x)
+
+    fig = None
     if m == 1:
-        fig = _plot_1d(x.ravel())
+        if multi_array:
+            for array in x:
+                fig = _plot_1d(array.ravel(), smooth=smooth, fig=fig)
+        else:
+            fig = _plot_1d(x.ravel(), smooth=smooth)
     elif m == 2:
-        fig = _plot_2d(x[:,0], x[:,1])
+        if multi_array:
+            for array in x:
+                fig = _plot_2d(array[:,0] + 1, array[:,1], smooth=smooth, fig=fig)
+        else:
+            fig = _plot_2d(x[:,0], x[:,1], smooth=smooth)
     elif m == 3:
-        fig = _plot_3d(x[:,0], x[:,1], x[:,2])
+        if multi_array:
+            for array in x:
+                fig = _plot_3d(array[:,0], array[:,1], array[:,2], fig=fig)
+        else:
+            fig = _plot_3d(x[:,0], x[:,1], x[:,2])
     else:
         raise SystemExit("Error. Only 1-3D plots are supported, while the given input \
                 had %d dimension." % m)
