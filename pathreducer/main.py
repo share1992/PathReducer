@@ -29,6 +29,7 @@ class PCA(sklPCA):
         if x.ndim != 2 or x.shape[-1] != self._model.n_components:
             raise systemexit("Error: Unexpected shape of data (%s)" % str(x.shape))
         x = self._model.inverse_transform(x)
+        #x = np.dot(x[:,0,None], self._model.components_[None,0,:]) + self._model.mean_
         return self._backtransform_features(x)
 
 
@@ -37,12 +38,15 @@ class DistancePCA(PCA):
         super(DistancePCA, self).__init__(n_components=n_components)
         self.memory = memory
 
+    def get_squared_euclidian_distances(self, x):
+        # Faster than np.linalg.norm
+        return np.sum((x[:,:,None] - x[:,None,:])**2, axis=3)
+
     def _transform_features(self, x):
         if x.ndim != 3 or x.shape[1:] != self._original_shape[1:]:
             raise systemexit("Error: Unexpected shape of data (%s)" % str(x.shape))
 
-        distance_matrix = euclidian_distances(x, self.memory)
-        print(distance_matrix[0,:3,:3])
+        distance_matrix = self.get_squared_euclidian_distances(x)
         mask_i, mask_j = np.mask_indices(x.shape[1], np.triu, 1)
         return distance_matrix[:,mask_i, mask_j]
 
@@ -54,37 +58,28 @@ class DistancePCA(PCA):
         distance_matrix[:, mask_j, mask_i] = x
         return distance_matrix
 
-    #np.repeat(x, 100, axis=0)
-    #np.tile(x, (100,1))
-    # ones @ x
     def _backtransform_features(self, x):
+        """
+        Using the gram matrix approach of https://arxiv.org/abs/1502.07541
+        """
+
         distance_matrix = self._vector_to_matrix(x)
+        n = distance_matrix.shape[1]
 
-        d = distance_matrix[0]
+        one_d = np.repeat(distance_matrix[:,:1], n, axis=1)
+        d_one = np.transpose(one_d, axes=(0,2,1))
+        g = - 0.5 * (distance_matrix - one_d - d_one)
 
-        d_one = np.reshape(d[:, 0], (d.shape[0], 1))
+        eigen_values, eigen_vectors = np.linalg.eig(g)
+        idx = eigen_values.argsort(1)[:,::-1]
+        # Convert to 3d dummy array to be able to vectorize the
+        # take_along_axis operation on eigen_vectors
+        idx_3d = np.repeat(idx[:,None], n, axis=1)
+        sorted_eigen_values = np.take_along_axis(eigen_values, idx, axis=1)
+        sorted_eigen_vectors = np.take_along_axis(eigen_vectors, idx_3d, axis=2)
+        identity = np.repeat(np.identity(n)[None], distance_matrix.shape[0], axis=0)
+        # clip(0) for removing negative eigen values to avoid nan's in the einsum
+        coords = sorted_eigen_vectors @ np.einsum('ijk,ij->ijk', identity, np.sqrt(sorted_eigen_values.clip(0)))
 
-        print(np.matmul(np.ones((d.shape[0], 1)), d[:,:1].T))
-
-        m = (-0.5) * (d - np.matmul(np.ones((d.shape[0], 1)), d[:,:1].T) - np.matmul(d_one,
-                                                                                           np.ones((1, d.shape[0]))))
-
-        print(m[:3,:3])
-
-        print(m.shape)
-        quit()
-
-    #values, vectors = np.linalg.eig(m)
-
-    #idx = values.argsort()[::-1]
-    #values = values[idx]
-    #vectors = vectors[:, idx]
-
-    #assert np.allclose(np.dot(m, vectors), values * vectors)
-
-    #coords = np.dot(vectors, np.diag(np.sqrt(values)))
-
-    ## Only taking first three columns as Cartesian (xyz) coordinates
-    #coords = np.asarray(coords[:, 0:3])
-
-    #return coords
+        # Only first three values from the last dimension corresponds to coordinates
+        return coords[:,:,:3]
