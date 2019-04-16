@@ -1,12 +1,13 @@
-from sklearn.decomposition import PCA as sklPCA
+import sklearn.decomposition
 import numpy as np
 
-from .utils import euclidian_distances
-
-class PCA(sklPCA):
+class PCA(object):
     def __init__(self, n_components=None):
-        self._model = sklPCA(n_components=n_components)
+        self._model = sklearn.decomposition.PCA(n_components=n_components)
         self._original_shape = None
+
+    def get_components(self):
+        return self._model.components_
 
     def _transform_features(self, x):
         if x.ndim != 3 or x.shape[1:] != self._original_shape[1:]:
@@ -32,13 +33,15 @@ class PCA(sklPCA):
         #x = np.dot(x[:,0,None], self._model.components_[None,0,:]) + self._model.mean_
         return self._backtransform_features(x)
 
-
 class DistancePCA(PCA):
-    def __init__(self, n_components=None, memory="normal"):
+    def __init__(self, n_components=None):
         super(DistancePCA, self).__init__(n_components=n_components)
-        self.memory = memory
+        self.masks_ = None
 
-    def get_squared_euclidian_distances(self, x):
+    def get_component_origin(self):
+        return self.masks_
+
+    def get_squared_euclidean_distances(self, x):
         # Faster than np.linalg.norm
         return np.sum((x[:,:,None] - x[:,None,:])**2, axis=3)
 
@@ -46,8 +49,9 @@ class DistancePCA(PCA):
         if x.ndim != 3 or x.shape[1:] != self._original_shape[1:]:
             raise systemexit("Error: Unexpected shape of data (%s)" % str(x.shape))
 
-        distance_matrix = self.get_squared_euclidian_distances(x)
+        distance_matrix = self.get_squared_euclidean_distances(x)
         mask_i, mask_j = np.mask_indices(x.shape[1], np.triu, 1)
+        self.masks_ = np.concatenate([mask_i[None], mask_j[None]])
         return distance_matrix[:,mask_i, mask_j]
 
     def _vector_to_matrix(self, x):
