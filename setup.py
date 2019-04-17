@@ -42,7 +42,7 @@ def setup_pathreducer():
 
         # set up package contents
 
-        ext_package = 'qml'
+        ext_package = 'pathreducer'
 )
 
 if __name__ == '__main__':
