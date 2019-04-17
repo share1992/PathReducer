@@ -28,6 +28,7 @@ def setup_pathreducer():
     setup(
 
         name="pathreducer",
+        packages=['pathreducer'],
         # metadata
         version=__version__,
         author=__author__,
