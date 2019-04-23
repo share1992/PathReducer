@@ -152,10 +152,9 @@ def vector_to_matrix(v):
     return m
 
 
-def distance_matrix_to_coords_alt_vector(v):
-    """ Converts a (2D square) distance matrix representation of a structure to Cartesian coordinates
-    (first 3 columns correspond to 3D xyz coordinates) via a Gram matrix (DIFFERENT DEFINITION OF M).
-    Should work exactly the same as distance_matrix_to_coords.
+def distance_matrix_to_coords(v):
+    """ Converts a (2D square) distance matrix representation of a structure to Cartesian coordinates (first 3 columns
+    correspond to 3D xyz coordinates) via a Gram matrix.
     :param v: 1D vector, numpy array
     :return: 3D Cartesian coordinates, numpy array
     """
@@ -185,7 +184,7 @@ def distance_matrix_to_coords_alt_vector(v):
 
 def pca_dr(n_dim, matrix):
     """
-    Standardizes and does PCA on input matrix with specified number of dimensions. Outputs information used to later
+    Standardizes (if necessary) and does PCA on input matrix with specified number of dimensions. Outputs information used to later
     generate xyz files in the reduced dimensional space and also for the function that filters out distances between
     key atoms and their neighbors.
     :param n_dim: int
@@ -193,21 +192,21 @@ def pca_dr(n_dim, matrix):
     :return:
     """
 
-    # Standardizing the data using StandardScaler
-    pca_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA(n_components=n_dim))
-    pcafull_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA())
+    # Standardize the data using StandardScaler. Only necessary if data is of different scales/in different units
+    # pca_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA(n_components=n_dim))
+    # pcafull_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA())
+    # pca_std = pca_pipeline.named_steps['pca']
+    # pcafull = pcafull_pipeline.named_steps['pca']
 
-    # Unscaled values for comparison
-    # unscaled_clf = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
-    # pca = unscaled_clf.named_steps['pca']
+    # Unstandardized values
+    unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
+    unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
 
-    pca_std = pca_pipeline.named_steps['pca']
-    pcafull = pcafull_pipeline.named_steps['pca']
+    pca = unscaled_pca_pipeline.named_steps['pca']
+    pcafull = unscaled_pca_full_pipeline.named_steps['pca']
 
-    # pca_std.fit(matrix)
-    matrix_pca_fit = pca_std.fit(pd.DataFrame(matrix))
-    # unscaled_matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-    matrix_pca = pca_std.transform(pd.DataFrame(matrix))
+    matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
+    matrix_pca = pca.transform(pd.DataFrame(matrix))
 
     pcafull.fit(pd.DataFrame(matrix))
 
@@ -217,15 +216,15 @@ def pca_dr(n_dim, matrix):
 
     x_1_2_3 = []
     for i in range(0, n_dim):
-        xi = np.dot(matrix_pca[:, i, None], pca_std.components_[None, i, :]) + pca_std.mean_
+        xi = np.dot(matrix_pca[:, i, None], pca.components_[None, i, :]) + pca.mean_
         x_1_2_3.append(xi)
 
-    x_all = np.dot(matrix_pca, pca_std.components_) + pca_std.mean_
+    x_all = np.dot(matrix_pca, pca.components_) + pca.mean_
 
     x_1_2_3 = np.array(x_1_2_3)
     x_all = np.array(x_all)
 
-    return matrix_pca, matrix_pca_fit, pca_std.components_, pca_std.mean_, pcafull.explained_variance_, x_1_2_3, x_all
+    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pcafull.explained_variance_, x_1_2_3, x_all
 
 
 def calc_ij(k, n):
@@ -270,6 +269,25 @@ def kabsch(coords):
     return coords_kabsch
 
 
+def align_to_original_traj(coords, original_traj_coords):
+    """Kabsch algorithm to get orientation of axes that minimizes RMSD (to avoid rotations in visualization). All
+    structures will be aligned to the corresponding structure in the original trajectory.
+    :param coords: coordinates along trajectory to be aligned, list or array
+    :param original_traj_coords: coordinates along original trajectory
+    """
+    coords = np.array(coords)
+    coords_aligned = []
+    for i in range(len(coords)):
+        # original_traj_coords[i] -= rmsd.centroid(original_traj_coords[i])
+        coords[i] -= rmsd.centroid(coords[i])
+        coords_i = rmsd.kabsch_rotate(coords[i], original_traj_coords[i])
+        coords_aligned.append(coords_i)
+
+    coords_aligned = np.array(coords_aligned)
+
+    return coords_aligned
+
+
 def chirality_test(coords, stereo_atoms):
     """ Determines chirality of structure so it is consistent throughout the generated reduced dimensional
     IRC/trajectory.
@@ -303,7 +321,7 @@ def chirality_test(coords, stereo_atoms):
     print("\nDetermining chirality of structure at each point of file...")
     print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
     print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
-    print("Number of structures with zero determinant (planar): %s" % np.size(zeros))
+    print("Number of structures with zero-valued determinant (all stereo_atoms in same plane): %s" % np.size(zeros))
     print("Total structures: %s" % len(signs))
 
     return negs, poss, zeros, signs
@@ -434,19 +452,19 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_a
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
 
 
-def print_distance_coeffs_to_files_evs(directory, n_dim, name, pca_components, pca_values, num_atoms):
+def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms):
 
     for n in range(n_dim):
         d = []
         for k in range(len(pca_components[n])):
             i, j = calc_ij(k, num_atoms)
-            coeff = pca_values[n]*pca_components[n][k]
+            coeff = (pca_values[n]/sum(pca_values))*pca_components[n][k]
             d.append({'atom 1': i, 'atom 2': j, 'Coefficient of Distance': coeff})
 
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components_evs.txt' % (n+1), sep='\t', index=None)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components_weighted.txt' % (n+1), sep='\t', index=None)
 
 
 def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_mean, old_data,
@@ -533,7 +551,7 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
 
     elif input_type == "Distances":
         # Turning distance matrix representations of structures back into Cartesian coordinates
-        coords_cartesian_x = [[distance_matrix_to_coords_alt_vector(x_1_2_3[i][k])
+        coords_cartesian_x = [[distance_matrix_to_coords(x_1_2_3[i][k])
                                for k in range(x_1_2_3.shape[1])] for i in range(x_1_2_3.shape[0])]
 
         if mass_weighting is True:
@@ -549,7 +567,7 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
         # into one xyz file)
-        coords_cartesian_x_all = [distance_matrix_to_coords_alt_vector(x_all[i])
+        coords_cartesian_x_all = [distance_matrix_to_coords(x_all[i])
                                   for i in range(np.array(x_all).shape[0])]
 
         if mass_weighting is True:
@@ -786,7 +804,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinat
             x_all_d = np.reciprocal(x_all_d)
 
         # Turning distance matrix representations of structures back into Cartesian coordinates
-        coords_cartesian_x = [[distance_matrix_to_coords_alt_vector(x_1_2_3_d[i][k])
+        coords_cartesian_x = [[distance_matrix_to_coords(x_1_2_3_d[i][k])
                                for k in range(x_1_2_3_d.shape[1])] for i in range(x_1_2_3_d.shape[0])]
 
         print("\n(4/6) Done with converting distance matrices back to coordinates (X1-3)!")
@@ -804,7 +822,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinat
 
         # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
         # into one xyz file)
-        coords_cartesian_x_all = [distance_matrix_to_coords_alt_vector(x_all_d[i])
+        coords_cartesian_x_all = [distance_matrix_to_coords(x_all_d[i])
                                   for i in range(np.array(x_all_d).shape[0])]
 
         print("\n(5/6) Done with converting distance matrices back to coordinates (X_all)!")
@@ -828,6 +846,13 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinat
 
         xyz_file_coords_cartesian = np.real(xyz_file_coords_cartesian)
         xyz_file_coords_cartesian_all_x = np.real(xyz_file_coords_cartesian_all_x)
+
+        # Align new Cartesian coordinates to original trajectory
+        xyz_file_coords_cartesian = [align_to_original_traj(xyz_file_coords_cartesian[i], coordinates_all) for i in
+                                     range(xyz_file_coords_cartesian.shape[0])]
+        xyz_file_coords_cartesian_all_x = [align_to_original_traj(xyz_file_coords_cartesian_all_x[i],
+                                                                  coordinates_all) for i in
+                                           range(xyz_file_coords_cartesian_all_x.shape[0])]
 
         if os.path.isfile(dr_input) is True:
 
@@ -862,3 +887,18 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Coordinat
             # return lengths, name, directory, d_pca, d_pca_fit, d_components, d_mean, d_values
 
         return lengths, name, directory, d_pca, d_pca_fit, d_components, d_mean, d_values
+
+
+def generate_deformation_vector(start_structure, end_structure):
+
+    np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
+    nmd_coords = np.reshape(start_structure, (1, np.array(start_structure).shape[0]*np.array(start_structure).shape[1]))
+
+    deformation_vector = end_structure - start_structure
+    deformation_vector = np.reshape(deformation_vector,
+                                    (1, np.array(deformation_vector).shape[0]*np.array(deformation_vector).shape[1]))
+    print("NMD Coordinates:", nmd_coords)
+    print("Deformation vector:", deformation_vector)
+
+    return deformation_vector
