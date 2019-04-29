@@ -34,5 +34,5 @@ colorplot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, input_type="Di
 
 # Print coefficients of distances that make up principal components to text files, put into output directory
 dim_red.print_distance_coeffs_to_files(direc1, ndim, system_name1, D_pca_components, 179)
-dim_red.print_distance_coeffs_to_files_evs(direc1, ndim, system_name1, D_pca_components, D_values, 179)
+dim_red.print_distance_coeffs_to_files_weighted(direc1, ndim, system_name1, D_pca_components, D_values, 179)
 
