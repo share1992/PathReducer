@@ -685,7 +685,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
         negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
 
         # Creating a directory for output (if directory doesn't already exist)
-        directory = os.path.basename(dr_input) + "_output"
+        directory = os.path.split(os.path.dirname(dr_input))[1] + "_output"
         if not os.path.exists(directory):
             os.makedirs(directory)
         print("\nResults for structures represented as %s when input to PCA will be stored in %s" % (input_type,
@@ -824,11 +824,11 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
         xyz_file_coords_cartesian_all_x = np.real(xyz_file_coords_cartesian_all_x)
 
         # Align new Cartesian coordinates to original trajectory
-        xyz_file_coords_cartesian = [align_to_original_traj(xyz_file_coords_cartesian[i], coordinates_all) for i in
-                                     range(xyz_file_coords_cartesian.shape[0])]
-        xyz_file_coords_cartesian_all_x = [align_to_original_traj(xyz_file_coords_cartesian_all_x[i],
-                                                                  coordinates_all) for i in
-                                           range(xyz_file_coords_cartesian_all_x.shape[0])]
+        # xyz_file_coords_cartesian = [align_to_original_traj(xyz_file_coords_cartesian[i], coordinates_all) for i in
+        #                              range(xyz_file_coords_cartesian.shape[0])]
+        # xyz_file_coords_cartesian_all_x = [align_to_original_traj(xyz_file_coords_cartesian_all_x[i],
+        #                                                           coordinates_all) for i in
+        #                                    range(xyz_file_coords_cartesian_all_x.shape[0])]
 
         if os.path.isfile(dr_input) is True:
 
