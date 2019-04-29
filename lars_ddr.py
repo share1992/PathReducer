@@ -27,8 +27,8 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         ax0 = fig.add_subplot(gs[0])
         ax0.grid(True)
 
-        ax0.set_xlabel('P.C. 1', fontsize=16)
-        ax0.set_ylabel('P.C. 2', fontsize=16)
+        ax0.set_xlabel('PC1', fontsize=16)
+        ax0.set_ylabel('PC2', fontsize=16)
         ax0.tick_params(axis='both', labelsize=12)
         # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
@@ -56,7 +56,9 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             # SN2
             # ax0.scatter(x[0],y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
             # ax0.scatter(x[15],y[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.scatter(x[24],y[24], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
+            # ax0.scatter(x[38],y[38], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
+            # idx = np.argmin(y)
+            # ax0.scatter(x[idx], y[idx], edgecolors='k', facecolors='none', s=50, zorder=10)
             # ax0.scatter(x[103],y[103], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
             # ax0.annotate('A', (x[0]+20, y[0]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
             # ax0.annotate('B', (x[20]+20, y[20]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
@@ -169,17 +171,20 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
+            # ax0.set_xlim(-40, 100)
+            # ax0.set_ylim(-20, 20)
 
     if y1 is not None:
         # Do 3D plot
 
         ax1 = fig.add_subplot(gs[1], projection='3d')
+        # ax1.view_init(elev=30., azim=200)
 
-        ax1.set_xlabel('P.C. 1', fontsize=16, labelpad=10)
-        ax1.set_ylabel('P.C. 2', fontsize=16, labelpad=10)
-        ax1.set_zlabel('P.C. 3', fontsize=16, labelpad=10)
+        ax1.set_xlabel('PC1', fontsize=16, labelpad=9)
+        ax1.set_ylabel('PC2', fontsize=16, labelpad=7)
+        ax1.set_zlabel('PC3', fontsize=16, labelpad=7)
         ax1.tick_params(axis='both', labelsize=12)#, pad=5)
-        ax1.ticklabel_format(style='sci', scilimits=(-3,3))
+        ax1.ticklabel_format(style='sci', scilimits=(-3, 3))
         # ax1.set_title('Top Three Principal Components', fontsize=18, fontstyle='italic')
         ax1.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax1.dist = 9
@@ -195,6 +200,9 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         # ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
         # ax1.scatter(x[15],y[15],y1[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
         # ax1.scatter(x[24],y[24],y1[24], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
+        # ax1.scatter(x[24],y[24],y1[24], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
+        # idx = np.argmin(y)
+        # ax1.scatter(x[idx], y[idx], y1[idx], edgecolors='k', facecolors='none', s=50, zorder=10)
         # ax1.scatter(x[103],y[103],y1[103], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
 
         if lengths is None or sum(lengths) == 0:
@@ -326,17 +334,21 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
             ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
+            # ax1.set_xlim(-40, 100)
+            # ax1.set_ylim(-20, 20)
+            # ax1.set_zlim(-20, 30)
+
     # fig.suptitle('Pathway in Reduced Dimensional Space: %s input' % input_type, fontsize=20)
     # fig.suptitle('%s input' % input_type, fontsize=20)
     fig.tight_layout(pad=5)
-    fig.subplots_adjust(top=0.88, wspace=0.02)
+    fig.subplots_adjust(top=0.88, wspace=0.2)
 
     if imgname is None:
         plt.show()
 
     else:
         # plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
-        plt.savefig(output_directory + "/" + imgname + ".png", dpi=600)
+        plt.savefig(output_directory + "/" + imgname + ".eps")
         plt.clf()
 
 # ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
