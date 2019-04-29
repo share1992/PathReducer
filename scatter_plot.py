@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import os
 
 
-def colorplot_scatter(x, y, z, time, point=None, name=None):
+def colorplot_scatter(x, y, z, directory, point=None, name=None):
+
+    time = list(range(len(x)))
 
     if name is not None:
         directory = "%s_eps_files" % name
@@ -48,12 +49,12 @@ def colorplot_scatter(x, y, z, time, point=None, name=None):
 
         filename = "%s_scatter_%s.eps" % (name, point)
 
-        # fig0.savefig(directory + "/" + "2D" + filename, format='eps', bbox_inches='tight')
+        fig0.savefig(directory + "/" + "2D" + filename, format='eps', bbox_inches='tight')
         fig1.savefig(directory + "/" + "3D_new_angle" + filename, format='eps', bbox_inches='tight', pad_inches=0.5)
 
     else:
         filename = "%s_scatter.eps" % name
-        # fig0.savefig(directory + "/" + "2D" + filename, format='eps', bbox_inches='tight')
+        fig0.savefig(directory + "/" + "2D" + filename, format='eps', bbox_inches='tight')
         fig1.savefig(directory + "/" + "3D_new_angle" + filename, format='eps', bbox_inches='tight', pad_inches=0.5)
 
         plt.show()
