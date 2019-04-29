@@ -1,6 +1,7 @@
 import pandas as pd
 import dimensionality_reduction_functions as dim_red
 from lars_ddr import colorplot
+from scatter_plot import colorplot_scatter
 
 ################################################### Input Variables  ###################################################
 

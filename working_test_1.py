@@ -33,4 +33,19 @@ colorplot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, input_type="Di
           imgname=(system_name1 + "_D"))
 
 
+coord1 = 'malondialdehydeTS_IRC_noMW_output/malondialdehydeTS_IRC_noMW_D_coord1.xyz'
+name, energies, atoms, coordinates_all = dim_red.read_file(coord1)
+deformation_PC1_R_TSS = dim_red.generate_deformation_vector(coordinates_all[0], coordinates_all[12])
+deformation_PC1_TSS_P = dim_red.generate_deformation_vector(coordinates_all[12], coordinates_all[24])
+
+coord2 = 'malondialdehydeTS_IRC_noMW_output/malondialdehydeTS_IRC_noMW_D_coord2.xyz'
+name, energies, atoms, coordinates_all = dim_red.read_file(coord2)
+deformation_PC2_R_TSS = dim_red.generate_deformation_vector(coordinates_all[0], coordinates_all[12])
+deformation_PC2_TSS_P = dim_red.generate_deformation_vector(coordinates_all[12], coordinates_all[24])
+
+coord3 = 'malondialdehydeTS_IRC_noMW_output/malondialdehydeTS_IRC_noMW_D_coord3.xyz'
+name, energies, atoms, coordinates_all = dim_red.read_file(coord3)
+deformation_PC3_R_TSS = dim_red.generate_deformation_vector(coordinates_all[0], coordinates_all[12])
+deformation_PC3_TSS_P = dim_red.generate_deformation_vector(coordinates_all[12], coordinates_all[24])
+
 
