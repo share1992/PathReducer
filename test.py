@@ -31,37 +31,22 @@ file = 'examples/for_paper/bifur_for_paper.xyz'
 # new_file = 'examples/bifurcations/Pummerer_dynamics_trajectories/gas-phase/comet-n30-traj6_fixed.xyz'
 # new_file = 'examples/bifurcations/Pummerer-gas-TS1-IRC.xyz'
 # new_file = 'examples/bifurcations/Pummerer_dynamics_trajectories/gas-phase/comet-n2-traj3_fixed.xyz'
-# new_file = 'examples/bifurcations/traj1.xyz'
+new_file = 'examples/bifurcations/traj1.xyz'
 # new_file = 'examples/bifurcations/traj2.xyz'
 # new_file = 'examples/bifurcations/traj3.xyz'
-new_file = 'examples/bifurcations/traj4.xyz'
+# new_file = 'examples/bifurcations/traj4.xyz'
 
 # Number of PCA components
 ndim = 3
 
-# Atom indexes surrounding a stereogenic center
-atom_1 = 1
-atom_2 = 2
-atom_3 = 3
-atom_4 = 4
-
 # 2-ala atoms
-al_atom_1 = 6
-al_atom_2 = 9
-al_atom_3 = 10
-al_atom_4 = 14
+stereo_atoms_al = [6, 9, 10, 14]
 
 # Pummerer system atoms surrounding resultant stereogenic center
-P_atom_1 = 1
-P_atom_2 = 6
-P_atom_3 = 27
-P_atom_4 = 32
+stereo_atoms_P = [1, 6, 27, 32]
 
 # Barry's bifurcation system atoms attached to allene core
-B_atom_1 = 4
-B_atom_2 = 5
-B_atom_3 = 6
-B_atom_4 = 7
+stereo_atoms_B = [4, 5, 6, 7]
 
 
 ############################################### COORDINATES input to PCA ###############################################
@@ -122,7 +107,7 @@ B_atom_4 = 7
 
 # EXAMPLE 2B: Single file as input
 traj_lengths1, system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values = \
-   dim_red.dr_routine(file, ndim, B_atom_1, B_atom_2, B_atom_3, B_atom_4, input_type="Distances")
+   dim_red.dr_routine(file, ndim, stereo_atoms=stereo_atoms_B, input_type="Distances")
 
 # # Plot trajectory in 2D and 3D. Only specify "lengths=" if input to dr_routine was directory
 # D_pca_df = pd.DataFrame(D_pca)
@@ -154,10 +139,12 @@ colorplot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_p
 #           output_directory=direc1 + "/new_data", imgname=(system_name1 + "_D"))
 
 # Barry's Bifurcation
-new_data_df = dim_red.transform_new_data(new_file, direc1 + "/new_data", ndim, atom_1, atom_2, atom_3, atom_4, D_pca_fit,
-D_pca_components, D_mean, D_pca, input_type="Distances")
+new_data_df = dim_red.transform_new_data(new_file, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+                                         D_pca, stereo_atoms=stereo_atoms_B, input_type="Distances")
 colorplot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
           same_axis=False, new_data=new_data_df, input_type="Distances", output_directory=direc1 + "/new_data",
-          imgname=(system_name1 + "_D_noMW_traj4"))
+          imgname=(system_name1 + "_D_noMW_traj1"))
+
+
 
 
