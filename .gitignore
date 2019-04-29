@@ -68,3 +68,7 @@ test_scripts/bifur_IRC_noMW_output/
 test_scripts/malonaldehyde_IRC_noMW_output/
 
 test_scripts/SN2_IRC_noMW_output/
+
+patricks_ircs\.py
+
+xyz_files_output/
