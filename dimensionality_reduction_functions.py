@@ -12,7 +12,6 @@ from periodictable import *
 from matplotlib import pyplot as plt
 from sklearn import *
 from lars_ddr import colorplot
-from filter_top_distances import filter_top_distances
 
 
 def read_file(f):
@@ -355,14 +354,17 @@ def chirality_changes_new(coords_reconstr, stereo_atoms, signs_orig):
 
 
 def make_xyz_files(name, atoms, xyz_coords):
-    """ Save principal coordinates as xyz files coord[n].xyz to output directory.
+    """ Save principal coordinates as xyz files PC[n].xyz to output directory.
     :param atoms: atoms in input trajectory, list
     :param name: name of the input system, str
-    :param xyz_coords: xyz coordinates of structures along Xi, list or numpy array
+    :param xyz_coords: xyz coordinates of structures along PCi, list or numpy array
     """
 
     for k in range(np.array(xyz_coords).shape[0]):
-        f = open('%s_coord%s.xyz' % (name, k + 1), 'w')
+        if np.array(xyz_coords).shape[0] == 1:
+            f = open('%s_all_PCs.xyz' % name, 'w')
+        else:
+            f = open('%s_PC%s.xyz' % (name, k + 1), 'w')
 
         for i in range(len(xyz_coords[k])):
 
@@ -547,7 +549,7 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
             no_mass_weighting_xyz_coords_x_all = x_all
 
         make_xyz_files(directory + "/" + name, atoms, no_mass_weighting_xyz_coords)
-        make_xyz_files(directory + "/" + name + "_all", atoms, no_mass_weighting_xyz_coords_x_all)
+        make_xyz_files(directory + "/" + name, atoms, no_mass_weighting_xyz_coords_x_all)
 
     elif input_type == "Distances":
         # Turning distance matrix representations of structures back into Cartesian coordinates
@@ -592,7 +594,7 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
         xyz_file_coords_cartesian_all_x = np.real(xyz_file_coords_cartesian_all_x)
 
         make_xyz_files(directory + "/" + name + "_D", atoms, xyz_file_coords_cartesian)
-        make_xyz_files(directory + "/" + name + "_all_D", atoms, xyz_file_coords_cartesian_all_x)
+        make_xyz_files(directory + "/" + name + "_D", atoms, xyz_file_coords_cartesian_all_x)
 
     old_data_df = pd.DataFrame(old_data)
 
@@ -606,8 +608,7 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
     #           new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
 
 
-def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", mass_weighting=False,
-               filtered_distances=False, n_top_atoms=50, dist_threshold=7.0, number_of_dists=10):
+def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", mass_weighting=False):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -617,12 +618,6 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
     :param n_dim: number of dimensions to reduce system to using PCA, int
     :param stereo_atoms: list of 4 atom indexes surrounding stereogenic center, ints
     :param input_type: input type to PCA, either "Cartesians" or "Distances, str
-    :param filtered_distances: whether, after "Coordinates" input to PCA, important distances should be determined
-    using the filter_top_distances method, bool
-    :param n_top_atoms: number of atoms involved in principal components to define scope of filter_top_distances, int
-    :param dist_threshold: distance from the n_top_atoms to consider when determining most important distances in
-    filter_top_distances, float
-    :param number_of_dists: number of distances to plot after running filter_top_distances, int
     :return: lengths, name, directory, coordinates_pca, coordinates_pca_fit, coordinates_components, coordinates_mean,
     coordinates_values, coordinates_all, no_mass_weighting_xyz_coords_x_all
     """
@@ -631,6 +626,8 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
     np.set_printoptions(threshold=np.nan)
 
     # Check if input is directory (containing input files) or a single input file itself
+    assert os.path.isfile(dr_input) or os.path.isdir(dr_input), "No such file or directory."
+
     lengths = []
     if os.path.isfile(dr_input) is True:
         print("\nInput is a file!")
@@ -746,7 +743,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
         # Make xyz files from final coordinate arrays
         if os.path.isfile(dr_input) is True:
             make_xyz_files(directory + "/" + name, atoms, no_mass_weighting_xyz_coords)
-            make_xyz_files(directory + "/" + name + "_all", atoms, no_mass_weighting_xyz_coords_x_all)
+            make_xyz_files(directory + "/" + name, atoms, no_mass_weighting_xyz_coords_x_all)
 
         elif os.path.isdir(dr_input) is True:
             for x in range(len(lengths)):
@@ -757,23 +754,19 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
                     one_file_x = np.array(no_mass_weighting_xyz_coords)[:, start_index:end_index, :, :]
                     one_file_x_all = np.array(no_mass_weighting_xyz_coords_x_all)[:, start_index:end_index, :, :]
                     make_xyz_files(directory + "/" + name, atoms, one_file_x)
-                    make_xyz_files(directory + "/" + name + "_all", atoms, one_file_x_all)
+                    make_xyz_files(directory + "/" + name, atoms, one_file_x_all)
                 else:
                     start_index = sum(lengths[:x])
                     end_index = sum(lengths[:(x + 1)])
                     one_file_x = np.array(no_mass_weighting_xyz_coords)[:, start_index:end_index, :, :]
                     one_file_x_all = np.array(no_mass_weighting_xyz_coords_x_all)[:, start_index:end_index, :, :]
                     make_xyz_files(directory + "/" + name, atoms, one_file_x)
-                    make_xyz_files(directory + "/" + name + "_all", atoms, one_file_x_all)
+                    make_xyz_files(directory + "/" + name, atoms, one_file_x_all)
 
         print("\n(4/4) Done with making xyz files!")
 
-        if filtered_distances is True:
-            sorted_pc1, sorted_pc2, sorted_pc3 = filter_top_distances(name, directory, n_dim, coordinates_components, coordinates_all,
-                                         no_mass_weighting_xyz_coords_x_all, n_top_atoms, dist_threshold, number_of_dists=number_of_dists)
-
         return lengths, name, directory, coordinates_pca, coordinates_pca_fit, coordinates_components, \
-               coordinates_mean, coordinates_values, coordinates_all, no_mass_weighting_xyz_coords_x_all
+               coordinates_mean, coordinates_values
 
     elif input_type == "Distances" or input_type == "Inverse Distances":
 
@@ -858,7 +851,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
 
             # Make final structures into xyz files
             make_xyz_files(directory + "/" + name + name_ext, atoms, xyz_file_coords_cartesian)
-            make_xyz_files(directory + "/" + name + "_all" + name_ext, atoms, xyz_file_coords_cartesian_all_x)
+            make_xyz_files(directory + "/" + name + name_ext, atoms, xyz_file_coords_cartesian_all_x)
 
             print("\n(6/6) Done with making xyz files!")
 
@@ -873,14 +866,14 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
                     one_file_x = np.array(xyz_file_coords_cartesian)[:, start_index:end_index, :, :]
                     one_file_x_all = np.array(xyz_file_coords_cartesian_all_x)[:, start_index:end_index, :, :]
                     make_xyz_files(directory + "/" + name + "_D", atoms, one_file_x)
-                    make_xyz_files(directory + "/" + name + "_all_D", atoms, one_file_x_all)
+                    make_xyz_files(directory + "/" + name + "_D", atoms, one_file_x_all)
                 else:
                     start_index = sum(lengths[:x])
                     end_index = sum(lengths[:(x + 1)])
                     one_file_x = np.array(xyz_file_coords_cartesian)[:, start_index:end_index, :, :]
                     one_file_x_all = np.array(xyz_file_coords_cartesian_all_x)[:, start_index:end_index, :, :]
                     make_xyz_files(directory + "/" + name + "_D", atoms, one_file_x)
-                    make_xyz_files(directory + "/" + name + "_all_D", atoms, one_file_x_all)
+                    make_xyz_files(directory + "/" + name + "_D", atoms, one_file_x_all)
 
             print("\n(6/6) Done with making xyz files!")
 
