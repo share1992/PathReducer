@@ -33,4 +33,4 @@ colored_line_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output
           imgname=(system_name + "_D"), points_to_circle=points_to_circle)
 
 colored_scatter_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], output_directory, points_to_circle=points_to_circle,
-                     imgname=(system_name + "scatter_D"), )
+                     imgname=(system_name + "scatter_D"))
