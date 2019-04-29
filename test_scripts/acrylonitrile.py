@@ -1,6 +1,6 @@
 import pandas as pd
 import dimensionality_reduction_functions as dim_red
-from lars_ddr import colorplot
+from plotting_functions import colored_line_plot
 
 # Number of PCA components
 ndim = 3
@@ -22,9 +22,9 @@ traj_lengths1, system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean,
 # Plotting
 # CARTESIANS INPUT
 coords_pca_df = pd.DataFrame(coords_pca)
-colorplot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=direc,
+colored_line_plot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=direc,
           imgname=system_name)
 
 # DISTANCES INPUT
 D_pca_df = pd.DataFrame(D_pca)
-colorplot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=direc1, imgname=(system_name1 + "_D"))
+colored_line_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=direc1, imgname=(system_name1 + "_D"))

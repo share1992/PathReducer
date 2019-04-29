@@ -1,6 +1,6 @@
 import pandas as pd
 import dimensionality_reduction_functions as dim_red
-from lars_ddr import colorplot
+from plotting_functions import colored_line_plot, colored_scatter_plot
 
 # Number of PCA components
 ndim = 3
@@ -24,11 +24,13 @@ points_to_circle = [0, 12, 24]
 
 # CARTESIANS INPUT
 coords_pca_df = pd.DataFrame(coords_pca)
-colorplot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=output_directory,
+colored_line_plot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=output_directory,
           imgname=system_name, points_to_circle=points_to_circle)
 
 # DISTANCES INPUT
 D_pca_df = pd.DataFrame(D_pca)
-colorplot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=output_directory,
+colored_line_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=output_directory,
           imgname=(system_name + "_D"), points_to_circle=points_to_circle)
 
+colored_scatter_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], output_directory, points_to_circle=points_to_circle,
+                     imgname=(system_name + "scatter_D"), )

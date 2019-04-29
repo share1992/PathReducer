@@ -58,3 +58,13 @@ acrylonitrile-N2O-dihedrals_for_paper_MW_output/
 malondialdehydeTS_IRC_for_paper_MW_output/
 
 SN2_all_for_paper_MW_output/
+
+test_scripts/malonaldehyde_IRC_MW_output/
+
+test_scripts/acrylonitrile_scan_noMW_output/
+
+test_scripts/bifur_IRC_noMW_output/
+
+test_scripts/malonaldehyde_IRC_noMW_output/
+
+test_scripts/SN2_IRC_noMW_output/

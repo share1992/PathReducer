@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 from scipy import interpolate
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from matplotlib.ticker import FormatStrFormatter
+import os
 
 
-def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, input_type=None, lengths=None, new_data=None,
-              output_directory=None):
+def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
+              output_directory=None, points_to_circle=None):
     """
     Create a 2D plot or 1D if y == None
     """
@@ -32,7 +33,6 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         ax0.tick_params(axis='both', labelsize=12)
         # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        # ax0.set_title('Top Two Principal Components', fontsize=18, fontstyle='italic')
 
         # ax1 = plt.subplot(gs[1])
 
@@ -49,20 +49,9 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
             ax0.add_collection(lc)
 
-            # Malonaldehyde
-            # ax0.scatter(x[0], y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.scatter(x[12], y[12], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.scatter(x[24], y[24], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # SN2
-            # ax0.scatter(x[0],y[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.scatter(x[15],y[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.scatter(x[38],y[38], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # idx = np.argmin(y)
-            # ax0.scatter(x[idx], y[idx], edgecolors='k', facecolors='none', s=50, zorder=10)
-            # ax0.scatter(x[103],y[103], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-            # ax0.annotate('A', (x[0]+20, y[0]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
-            # ax0.annotate('B', (x[20]+20, y[20]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
-            # ax0.annotate('C', (x[45]+20, y[45]+10), fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
+            if points_to_circle is not None:
+                for i in points_to_circle:
+                    ax0.scatter(x[i], y[i], edgecolors='k', facecolors='none', s=50, zorder=10)
 
             if x2 is not None and y2 is not None:
                 tck2, u2 = interpolate.splprep([x2, y2], k=1, s=0.0)
@@ -192,18 +181,9 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         # ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
-        # Malonaldehyde
-        # ax1.scatter(x[0], y[0], y1[0], edgecolors='k', facecolors='none', s=50, zorder=10)
-        # ax1.scatter(x[12], y[12], y1[12], edgecolors='k', facecolors='none', s=50, zorder=10)
-        # ax1.scatter(x[24], y[24], y1[24], edgecolors='k', facecolors='none', s=50, zorder=10)
-        # SN2
-        # ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-        # ax1.scatter(x[15],y[15],y1[15], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-        # ax1.scatter(x[24],y[24],y1[24], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
-        # ax1.scatter(x[24],y[24],y1[24], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
-        # idx = np.argmin(y)
-        # ax1.scatter(x[idx], y[idx], y1[idx], edgecolors='k', facecolors='none', s=50, zorder=10)
-        # ax1.scatter(x[103],y[103],y1[103], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
+        if points_to_circle is not None:
+            for i in points_to_circle:
+                ax1.scatter(x[i], y[i], y1[i], edgecolors='k', facecolors='none', s=50, zorder=10)
 
         if lengths is None or sum(lengths) == 0:
 
@@ -338,8 +318,6 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
             # ax1.set_ylim(-20, 20)
             # ax1.set_zlim(-20, 30)
 
-    # fig.suptitle('Pathway in Reduced Dimensional Space: %s input' % input_type, fontsize=20)
-    # fig.suptitle('%s input' % input_type, fontsize=20)
     fig.tight_layout(pad=5)
     fig.subplots_adjust(top=0.88, wspace=0.2)
 
@@ -351,9 +329,65 @@ def colorplot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same
         plt.savefig(output_directory + "/" + imgname + ".eps")
         plt.clf()
 
-# ax1.scatter(x[0],y[0],y1[0], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-# ax1.scatter(x[20],y[20],y1[20], edgecolors = 'k', facecolors = 'none', s=50, zorder=10)
-# ax1.scatter(x[45],y[45],y1[45], edgecolors= 'k', facecolors = 'none', s=50, zorder=10)
-# ax1.text(x[0]-40, y[0]+10, y1[0]+10, 'A', fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
-# ax1.text(x[20]+20, y[20]+10, y1[20]+5, 'B', fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
-# ax1.text(x[45]+20, y[45]+10, y1[45]+5, 'C', fontsize=20, fontweight='bold', fontfamily='Arial', zorder=10)
+
+def colored_scatter_plot(x, y, z, directory=None, points_to_circle=None, imgname=None):
+
+    time = list(range(len(x)))
+
+    if directory is None:
+        directory = "%s_eps_files" % imgname
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+    x = list(x)
+    y = list(y)
+    z = list(z)
+
+    # Create figure
+    fig0 = plt.figure(figsize=(6, 5))
+    ax0 = fig0.add_subplot(1, 1, 1)
+    # ax0.grid(True)
+
+    ax0.scatter(x, y, s=100, c=time, cmap='viridis', edgecolors='k')
+    ax0.set_xlabel("PC1", fontsize=16)
+    ax0.set_ylabel("PC2", fontsize=16)
+
+    ax0.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+    ax0.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+    ax0.tick_params(labelsize=14, pad=10)
+
+    fig1 = plt.figure(figsize=(7, 6))
+    ax1 = fig1.add_subplot(1, 1, 1, projection='3d')
+    ax1.scatter(x, y, z, s=100, c=time, cmap='viridis', edgecolors='k')
+    ax1.set_xlabel("PC1", fontsize=16, labelpad=20)
+    ax1.set_ylabel("PC2", fontsize=16, labelpad=20)
+    ax1.set_zlabel("PC3", fontsize=16, labelpad=20)
+    ax1.ticklabel_format(style='sci', scilimits=(-4,4))
+
+    ax1.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+    ax1.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+    ax1.tick_params(labelsize=14, pad=10)
+
+    # ax1.view_init(elev=20., azim=60)
+    ax1.grid(False)
+
+    if points_to_circle is not None:
+        # ax0.scatter(x[point], y[point], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=2)
+        # ax1.scatter(x[point], y[point], z[point], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=2)
+        for i in points_to_circle:
+            ax0.scatter(x[i], y[i], edgecolors='k', facecolors='none', s=400, linewidth=2, zorder=10)
+            ax1.scatter(x[i], y[i], z[i], edgecolors='k', facecolors='none', s=400, linewidth=2, zorder=10)
+
+        filename = "%s_scatter.eps" % imgname
+
+        fig0.savefig(directory + "/" + "2D_" + filename, format='eps', bbox_inches='tight')
+        fig1.savefig(directory + "/" + "3D_" + filename, format='eps', bbox_inches='tight', pad_inches=0.5)
+
+    else:
+        filename = "%s_scatter.eps" % imgname
+        fig0.savefig(directory + "/" + "2D_" + filename, format='eps', bbox_inches='tight')
+        fig1.savefig(directory + "/" + "3D_" + filename, format='eps', bbox_inches='tight', pad_inches=0.5)
+
+        plt.show()
+
+

@@ -1,7 +1,7 @@
 import pandas as pd
 import dimensionality_reduction_functions as dim_red
 import numpy as np
-from lars_ddr import colorplot
+from plotting_functions import colored_line_plot
 
 # Number of PCA components
 ndim = 3
@@ -34,12 +34,12 @@ coords_pca_df = pd.DataFrame(coords_pca)
 D_pca_df = pd.DataFrame(D_pca)
 # CARTESIANS INPUT
 points_to_circle = [0, 15, np.argmin(D_pca_df[1]), 103]
-colorplot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=direc,
+colored_line_plot(coords_pca_df[0], coords_pca_df[1], coords_pca_df[2], same_axis=False, output_directory=direc,
           imgname=system_name, points_to_circle=points_to_circle)
-colorplot(coords_pca_df[0], y=coords_pca_df[1], y1=coords_pca_df[2], same_axis=False, new_data=new_data_df,
+colored_line_plot(coords_pca_df[0], y=coords_pca_df[1], y1=coords_pca_df[2], same_axis=False, new_data=new_data_df,
           output_directory=direc + "/new_data", imgname=system_name, points_to_circle=points_to_circle)
 # DISTANCES INPUT
-colorplot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=direc1,
+colored_line_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=direc1,
           imgname=(system_name1 + "_D"), points_to_circle=points_to_circle)
-colorplot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], same_axis=False, new_data=new_data_df,
+colored_line_plot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], same_axis=False, new_data=new_data_df,
           output_directory=direc1 + "/new_data", imgname=(system_name1 + "_D"), points_to_circle=points_to_circle)

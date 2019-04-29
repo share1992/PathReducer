@@ -11,8 +11,6 @@ import os
 from periodictable import *
 from matplotlib import pyplot as plt
 from sklearn import *
-from lars_ddr import colorplot
-
 
 def read_file(f):
     """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
@@ -600,13 +598,6 @@ def transform_new_data(new_traj, directory, n_dim, pca_fit, pca_components, pca_
 
     return components_df
 
-    # if lengths is not None:
-    #     colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
-    #           new_data=components_df, lengths=lengths)
-    # else:
-    #     colorplot(old_data_df[0], old_data_df[1], old_data_df[2], same_axis=False, input_type=input_type,
-    #           new_data=components_df, output_directory=directory, imgname=(name + input_type + "new_data"))
-
 
 def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", mass_weighting=False):
     """
@@ -768,7 +759,7 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
         return lengths, name, directory, coordinates_pca, coordinates_pca_fit, coordinates_components, \
                coordinates_mean, coordinates_values
 
-    elif input_type == "Distances" or input_type == "Inverse Distances":
+    elif input_type == "Distances":
 
         d2 = generate_ds(coords_for_analysis)
 
@@ -778,23 +769,15 @@ def dr_routine(dr_input, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesian
 
         print("\n(2/6) Reshaping upper triangle of Ds into vectors done!")
 
-        if input_type == "Inverse Distances":
-            pca_input = np.reciprocal(d_re)
-            name_ext = "_INV_D"
-        else:
-            pca_input = d_re
-            name_ext = "_D"
+        pca_input = d_re
+        name_ext = "_D"
 
-        # PCA on distance matrix and inverse distance matrix
+        # PCA on distance matrix
         d_pca, d_pca_fit, d_components, d_mean, d_values, x_1_2_3_d, x_all_d = pca_dr(n_dim, pca_input)
 
         plot_gof(d_values, name + "_D", directory)
 
         print("\n(3/6) Done with PCA of %s!" % input_type)
-
-        if input_type == "Inverse Distances":
-            x_1_2_3_d = np.reciprocal(x_1_2_3_d)
-            x_all_d = np.reciprocal(x_all_d)
 
         # Turning distance matrix representations of structures back into Cartesian coordinates
         coords_cartesian_x = [[distance_matrix_to_coords(x_1_2_3_d[i][k])
