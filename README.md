@@ -13,18 +13,22 @@ PathReducer outputs...
 
 To transform new data into an already defined reduced dimensional space, use the "transform_new_data" function.
 
-# Example Usage
+## Installation
+Dependencies: numpy, pandas, math, glob, os, matplotlib, sklearn, periodictable, calculate_rmsd as rmsd
+
+
+## Example Usage
 `file = 'examples/reaction_1/reaction_coordinate.xyz'`  
 `ndim = 3`    
 `stereo_atoms = [1, 2, 3, 4]`      
 
-# Cartesian coordinates input to PCA
+### Cartesian coordinates input to PCA
 `system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, traj_lengths = \
     dim_red.dr_routine(files, ndim, input_type="Cartesians")`
 
-# Interatomic distances input to PCA
+### Interatomic distances input to PCA
 `system_name, output_directory, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj_lengths = \
    dim_red.dr_routine(files, ndim, stereo_atoms=stereo_atoms, input_type="Distances")`
    
-# Transforming new data into reduced dimensional space
+### Transforming new data into reduced dimensional space
 `new_data_PCs = dim_red.transform_new_data(new_file, output_directory + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean, D_pca, stereo_atoms=stereo_atoms, input_type="Distances")`
