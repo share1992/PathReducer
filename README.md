@@ -14,8 +14,9 @@ PathReducer outputs...
 To transform new data into an already defined reduced dimensional space, use the "transform_new_data" function.
 
 ## Installation
-Dependencies: numpy, pandas, math, glob, os, matplotlib, sklearn, periodictable, calculate_rmsd as rmsd
-
+### Dependencies
+Pathreducer: numpy, pandas, math, glob, os, matplotlib, sklearn, periodictable, calculate_rmsd as rmsd
+Plotting functions: numpy, matplotlib, scipy, mpl_toolkits, os
 
 ## Example Usage
 `file = 'examples/reaction_1/reaction_coordinate.xyz'`  
