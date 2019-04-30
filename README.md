@@ -3,9 +3,9 @@
 PathReducer is a tool that takes as input some set of molecular geometries (e.g., an intrinsic reaction coordinate, a molecular dynamics trajectory, a relaxed potential energy surface scan) and outputs a reduced dimensional space for that set of molecular geometries. 
 
 PathReducer takes as input 
-  (1) the path to the xyz file (or files) of interest, as a string
-  (2) the number of dimensions to reduce to, as an integer
-  (3) optionally (though often necessary for visualization when representing the molecular structures as interatomic distances) the indexes of atoms (with numbering starting at 1, not 0) surrounding a stereogenic center in the system, as a list of integers
+1. the path to the xyz file (or files) of interest, as a string
+2. the number of dimensions to reduce to, as an integer
+3. optionally (though often necessary for visualization when representing the molecular structures as interatomic distances) the indexes of atoms (with numbering starting at 1, not 0) surrounding a stereogenic center in the system, as a list of integers
   
 Currently, dimensionality reduction is conducted using Principal Component Analysis (PCA), though other dimensionality reduction techniques will be implemented in the future.
 
