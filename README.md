@@ -14,9 +14,9 @@ PathReducer outputs...
 To transform new data into an already defined reduced dimensional space, use the "transform_new_data" function.
 
 # Example Usage
-file = 'examples/reaction_1/reaction_coordinate.xyz'
-ndim = 3
-stereo_atoms = [1, 2, 3, 4]
+file = 'examples/reaction_1/reaction_coordinate.xyz'. 
+ndim = 3  
+stereo_atoms = [1, 2, 3, 4]. 
 
 \# CARTESIANS INPUT TO PCA
 system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, traj_lengths = \
