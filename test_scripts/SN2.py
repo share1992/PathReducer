@@ -13,20 +13,20 @@ stereo_atoms_SN2 = [1, 4, 5, 2]
 new_file = '../examples/SN2/SN2_traj1.xyz'
 
 # CARTESIANS INPUT
-traj_lengths, system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals = \
-    dim_red.dr_routine(file, ndim, input_type="Cartesians")
+system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, traj_lengths = \
+    dim_red.pathreducer(file, ndim, input_type="Cartesians")
 
 # Transforming new data into RD space
-new_data_df = dim_red.transform_new_data(new_file, direc + "/new_data", ndim, coords_pca_fit,
-              coords_comps, coords_mean, coords_pca, input_type="Cartesians")
+new_data_df = dim_red.transform_new_data(new_file, direc + "/new_data", ndim, coords_pca_fit, coords_comps, coords_mean,
+                                         input_type="Cartesians")
 
 # DISTANCES INPUT
-traj_lengths1, system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values = \
-   dim_red.dr_routine(file, ndim, stereo_atoms=stereo_atoms_SN2, input_type="Distances")
+system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj_lengths1 = \
+   dim_red.pathreducer(file, ndim, stereo_atoms=stereo_atoms_SN2, input_type="Distances")
 
 # Transforming new data into RD space
-new_data_df = dim_red.transform_new_data(new_file, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
-                                         D_pca, stereo_atoms=stereo_atoms_SN2, input_type="Distances")
+new_data_D_df = dim_red.transform_new_data(new_file, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+                                           stereo_atoms=stereo_atoms_SN2, input_type="Distances")
 
 
 # Plotting

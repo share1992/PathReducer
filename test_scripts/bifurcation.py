@@ -16,22 +16,22 @@ new_file3 = '../examples/bifurcation/bifur_traj3.xyz'
 new_file4 = '../examples/bifurcation/bifur_traj4.xyz'
 
 # CARTESIANS INPUT
-traj_lengths, system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals = \
-    dim_red.dr_routine(file, ndim, input_type="Cartesians")
+system_name, direc, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, traj_lengths = \
+    dim_red.pathreducer(file, ndim, input_type="Cartesians")
 
 # DISTANCES INPUT
-traj_lengths1, system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values = dim_red.dr_routine(file,
-                                                            ndim, stereo_atoms=stereo_atoms_B, input_type="Distances")
+system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj_lengths1 = dim_red.pathreducer(file,
+                            ndim, stereo_atoms=stereo_atoms_B, input_type="Distances")
 
 # Transforming new data into RD space
 new_data_df1 = dim_red.transform_new_data(new_file1, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
-                                         D_pca, stereo_atoms=stereo_atoms_B, input_type="Distances")
+                                          stereo_atoms=stereo_atoms_B, input_type="Distances")
 new_data_df2 = dim_red.transform_new_data(new_file2, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
-                                         D_pca, stereo_atoms=stereo_atoms_B, input_type="Distances")
+                                          stereo_atoms=stereo_atoms_B, input_type="Distances")
 new_data_df3 = dim_red.transform_new_data(new_file3, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
-                                         D_pca, stereo_atoms=stereo_atoms_B, input_type="Distances")
+                                          stereo_atoms=stereo_atoms_B, input_type="Distances")
 new_data_df4 = dim_red.transform_new_data(new_file4, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
-                                         D_pca, stereo_atoms=stereo_atoms_B, input_type="Distances")
+                                          stereo_atoms=stereo_atoms_B, input_type="Distances")
 
 
 # Plotting
@@ -39,7 +39,7 @@ new_data_df4 = dim_red.transform_new_data(new_file4, direc1 + "/new_data", ndim,
 coords_pca_df = pd.DataFrame(coords_pca)
 coords_pca_df1 = coords_pca_df[0:183]
 coords_pca_df2 = coords_pca_df.drop(coords_pca_df.index[106:184], axis=0)
-colorplot(coords_pca_df1[0], y=coords_pca_df1[1], y1=coords_pca_df1[2], x2=coords_pca_df2[0], y2=coords_pca_df2[1],
+colored_line_plot(coords_pca_df1[0], y=coords_pca_df1[1], y1=coords_pca_df1[2], x2=coords_pca_df2[0], y2=coords_pca_df2[1],
           y12=coords_pca_df2[2], same_axis=False, output_directory=direc, imgname=system_name)
 
 # DISTANCES INPUT

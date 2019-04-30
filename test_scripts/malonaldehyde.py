@@ -11,12 +11,12 @@ file = '../examples/malonaldehyde/malonaldehyde_IRC.xyz'
 stereo_atoms_malon = [4, 7, 1, 8]
 
 # CARTESIANS INPUT
-traj_lengths, system_name, output_directory, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, = \
-    dim_red.dr_routine(file, ndim, input_type="Cartesians")
+system_name, output_directory, coords_pca, coords_pca_fit, coords_comps, coords_mean, coords_vals, traj_lengths = \
+    dim_red.pathreducer(file, ndim, input_type="Cartesians")
 
 # DISTANCES INPUT
-traj_lengths, system_name, output_directory, D_pca, D_pca_fit, D_pca_components, D_mean, D_values = \
-   dim_red.dr_routine(file, ndim, stereo_atoms=stereo_atoms_malon, input_type="Distances")
+system_name, output_directory_D, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj_lengths_D = \
+    dim_red.pathreducer(file, ndim, stereo_atoms=stereo_atoms_malon, input_type="Distances")
 
 
 # Plotting PCs in 2D and 3D
