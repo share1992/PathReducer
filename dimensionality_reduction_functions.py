@@ -789,7 +789,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
         print("\nDone generating output!")
 
-        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths, aligned_no_mass_weighting_PCs_separate
+        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths
 
 
 def generate_deformation_vector(start_structure, end_structure):
