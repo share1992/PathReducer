@@ -98,11 +98,32 @@ def unmass_weighting(atoms, coordinates):
     return unmass_weighted_coords
 
 
-def generate_ds(coordinates):
-    """ Generates distance matrices, either for each structure or between structures, depending on the input.
+def generate_distance_matrices(coordinates):
+    """ Generates distance matrices for each structure.
     """
+    coordinates = np.array(coordinates)
     d2 = np.sum((coordinates[:, :, None] - coordinates[:, None, :]) ** 2, axis=3)
     return d2
+
+
+def generate_dihedral_matrices(coordinates):
+    return coordinates
+
+
+def generate_and_reshape_ds_big_structures(coordinates):
+    """ Generates matrix of pairwise distances, which includes pairwise distances for each structure. To be fed directly
+    to PCA.
+    :param coordinates:
+    """
+    coordinates = np.array(coordinates)
+    atoms = int(coordinates.shape[1])
+    d_re = np.zeros((coordinates.shape[0], int(atoms*(atoms-1)/2)))
+    for i in range(coordinates.shape[0]):
+        d2 = np.square(metrics.pairwise.euclidean_distances(coordinates[i]))
+        x = d2[0].shape[0]
+        dint_re = d2[np.triu_indices(x, k=1)]
+        d_re[i] = dint_re
+    return d_re
 
 
 def reshape_ds(d):
@@ -195,29 +216,47 @@ def pca_dr(n_dim, matrix):
     # pca_std = pca_pipeline.named_steps['pca']
     # pcafull = pcafull_pipeline.named_steps['pca']
 
-    # Unstandardized values
-    unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
-    unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
+    # If using interatomic distances, this matrix size corresponds to 500 atoms. If this is the case, incremental PCA
+    # is used.
+    if matrix.shape[1] > 124750:
 
-    pca = unscaled_pca_pipeline.named_steps['pca']
-    pcafull = unscaled_pca_full_pipeline.named_steps['pca']
+        print("Large matrix. Doing incremental PCA...")
 
-    matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-    matrix_pca = pca.transform(pd.DataFrame(matrix))
+        pca = decomposition.IncrementalPCA(n_components=n_dim)
+        # pca_full = decomposition.IncrementalPCA()
 
-    pcafull.fit(pd.DataFrame(matrix))
+        matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
+        matrix_pca = pca.transform(pd.DataFrame(matrix))
+
+        # pca_full.fit(pd.DataFrame(matrix))
+
+    else:
+        unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
+        unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
+
+        pca = unscaled_pca_pipeline.named_steps['pca']
+        pca_full = unscaled_pca_full_pipeline.named_steps['pca']
+
+        matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
+        matrix_pca = pca.transform(pd.DataFrame(matrix))
+
+        pca_full.fit(pd.DataFrame(matrix))
+
+    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pca.explained_variance_
+
+def generate_PC_matrices(n_dim, matrix_reduced, components, mean):
 
     PCs_separate = []
     for i in range(0, n_dim):
-        xi = np.dot(matrix_pca[:, i, None], pca.components_[None, i, :]) + pca.mean_
-        PCs_separate.append(xi)
+        PCi = np.dot(matrix_reduced[:, i, None], components[None, i, :]) + mean
+        PCs_separate.append(PCi)
 
-    PCs_combined = np.dot(matrix_pca, pca.components_) + pca.mean_
+    PCs_combined = np.dot(matrix_reduced, components) + mean
 
     PCs_separate = np.array(PCs_separate)
     PCs_combined = np.array(PCs_combined)
 
-    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pcafull.explained_variance_, PCs_separate, PCs_combined
+    return PCs_separate, PCs_combined
 
 
 def calc_ij(k, n):
@@ -243,9 +282,8 @@ def top_values(a, n):
 
 
 def kabsch(coords):
-    """Kabsch algorithm to get orientation of axes that minimizes RMSD (to avoid rotations in visualization). All
-    structures will be aligned to the first structure in the trajectory. Only necessary when input_type="Distances",
-    because structures will be generated in reduced dimensional space in an arbitrary rotational configuration.
+    """Kabsch algorithm to get orientation of axes that minimizes RMSD. All structures will be aligned to the first
+    structure in the trajectory.
     :param coords: coordinates along trajectory to be aligned, list or array
     """
     coords = np.array(coords)
@@ -263,16 +301,16 @@ def kabsch(coords):
 
 def align_to_original_traj(coords, original_traj_coords):
     """Kabsch algorithm to get orientation of axes that minimizes RMSD (to avoid rotations in visualization). All
-    structures will be aligned to the corresponding structure in the original trajectory.
+    structures will be aligned to the first structure in the original trajectory.
     :param coords: coordinates along trajectory to be aligned, list or array
     :param original_traj_coords: coordinates along original trajectory
     """
     coords = np.array(coords)
     coords_aligned = []
+    original_traj_coords[0] -= rmsd.centroid(original_traj_coords[0])
     for i in range(len(coords)):
-        original_traj_coords[i] -= rmsd.centroid(original_traj_coords[i])
         coords[i] -= rmsd.centroid(coords[i])
-        coords_i = rmsd.kabsch_rotate(coords[i], original_traj_coords[i])
+        coords_i = rmsd.kabsch_rotate(coords[i], original_traj_coords[0])
         coords_aligned.append(coords_i)
 
     coords_aligned = np.array(coords_aligned)
@@ -462,8 +500,10 @@ def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_componen
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components_weighted.txt' % (n+1), sep='\t', index=None)
 
 
-def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_components, pca_mean, stereo_atoms=[1, 2, 3, 4],
-                       input_type="Cartesians", mass_weighting=False):
+def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_components, pca_mean, original_traj_coords,
+                       stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False):
+    # TODO: add original trajectory as input so new data can be properly aligned to original traj (only matters for
+    #  Cartesians)
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
     conducted and transforms this new data into the reduced dimensional space. Generates a plot, with the new data atop
@@ -474,37 +514,58 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
     :param pca_fit: fit from PCA on training data
     :param pca_components: components from PCA on training data, array
     :param pca_mean: mean of input data to PCA (mean structure as coords or distances), array
+    :param original_traj_coords: coordinates of the trajectory that the reduced dimensional space was trained on
     :param stereo_atoms: indexes of 4 atoms surrounding stereogenic center, list of ints
     :param input_type: type of input (either "Cartesians" or "Distances"), str
-    :param mass_weighting: whether coordinates should be mass weighted prior to PCA, bool
+    :param MW: whether coordinates should be mass weighted prior to PCA, bool
     """
 
     print("\nTransforming %s into reduced dimensional representation..." % new_input)
 
     name, atoms, coordinates = read_file(new_input)
 
-    if mass_weighting is True:
-        coordinates_shifted = set_atom_one_to_origin(coordinates)
-        atom_masses, mass_weighted_coords = mass_weighting(atoms, coordinates_shifted)
-        coords_for_analysis = mass_weighted_coords
-
-    else:
-        coords_for_analysis = coordinates
-
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
     print("\nResults for %s input will be stored in %s" % (new_input, output_directory))
 
+    # Determining names of output directories/files
+    if input_type == "Cartesians":
+        file_name_end = "_Cartesians"
+    elif input_type == "Distances":
+        file_name_end = "_Distances"
+    if MW is True:
+        file_name_end = file_name_end + "_MW"
+    elif MW is False:
+        file_name_end = file_name_end + "_noMW"
+
     if input_type == "Cartesians":
         # Align structures using Kabsch algorithm so rotations don't affect PCs
-        coords_for_analysis = kabsch(coords_for_analysis)
+        aligned_original_traj_coords = kabsch(original_traj_coords)
+        coords_for_analysis = align_to_original_traj(coordinates, aligned_original_traj_coords)
+        # coords_for_analysis = kabsch(coordinates)
+        if MW is True:
+            atom_masses, mass_weighted_coords = mass_weighting(atoms, coords_for_analysis)
+            coords_for_analysis = mass_weighted_coords
+
+        else:
+            coords_for_analysis = coords_for_analysis
+
         coords_for_analysis = np.reshape(coords_for_analysis, (coords_for_analysis.shape[0],
                                                                coords_for_analysis.shape[1] *
                                                                coords_for_analysis.shape[2]))
 
     elif input_type == "Distances":
+
+        if MW is True:
+            coordinates_shifted = set_atom_one_to_origin(coordinates)
+            atom_masses, mass_weighted_coords = mass_weighting(atoms, coordinates_shifted)
+            coords_for_analysis = mass_weighted_coords
+
+        else:
+            coords_for_analysis = coordinates
+
         negatives, positives, zeroes, all_signs = chirality_test(coordinates, stereo_atoms)
-        d2 = generate_ds(coords_for_analysis)
+        d2 = generate_distance_matrices(coords_for_analysis)
         coords_for_analysis = reshape_ds(d2)
 
     components = pca_fit.transform(coords_for_analysis)
@@ -521,18 +582,25 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
     PCs_combined = np.array(PCs_combined)
 
     if input_type == "Cartesians":
-        file_name_end = "_Cartesians"
         # Reshape n x 3N x 1 arrays into n x N x 3 arrays
         PCs_separate = np.reshape(PCs_separate, (PCs_separate.shape[0], PCs_separate.shape[1],
                                                      int(PCs_separate.shape[2] / 3), 3))
 
         PCs_combined = np.reshape(PCs_combined, (1, PCs_combined.shape[0], int(PCs_combined.shape[1] / 3), 3))
 
-        aligned_PCs_separate = PCs_separate
-        aligned_PCs_combined = PCs_combined
+        if MW is True:
+            # Remove mass-weighting of coordinates
+            no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i])
+                                                      for i in range(n_dim)]
+            no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
+        else:
+            no_mass_weighting_PCs_separate = PCs_separate
+            no_mass_weighting_PCs_combined = PCs_combined
+
+        aligned_PCs_separate = no_mass_weighting_PCs_separate
+        aligned_PCs_combined = no_mass_weighting_PCs_combined
 
     elif input_type == "Distances":
-        file_name_end = "_Distances"
         # Turning distance matrix representations of structures back into Cartesian coordinates
         PCs_separate = [[distance_matrix_to_coords(PCs_separate[i][k])
                                for k in range(PCs_separate.shape[1])] for i in range(PCs_separate.shape[0])]
@@ -542,34 +610,36 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
         PCs_separate = np.real(PCs_separate)
         PCs_combined = np.real(PCs_combined)
 
+        if MW is True:
+            # Remove mass-weighting of coordinates
+            no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i])
+                                                      for i in range(n_dim)]
+            no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
+        else:
+            no_mass_weighting_PCs_separate = PCs_separate
+            no_mass_weighting_PCs_combined = PCs_combined
+
         # Reorient coordinates so they are in a consistent orientation
-        aligned_PCs_separate = [kabsch(chirality_changes_new(PCs_separate[i], stereo_atoms,
+        aligned_PCs_separate = [kabsch(chirality_changes_new(no_mass_weighting_PCs_separate[i], stereo_atoms,
                                           all_signs)) for i in range(n_dim)]
-        aligned_PCs_combined = kabsch(chirality_changes_new(PCs_combined, stereo_atoms, all_signs))
+        aligned_PCs_combined = kabsch(chirality_changes_new(no_mass_weighting_PCs_combined, stereo_atoms, all_signs))
         aligned_PCs_combined = np.reshape(aligned_PCs_combined, (1, aligned_PCs_combined.shape[0],
                                                       aligned_PCs_combined.shape[1],
                                                       aligned_PCs_combined.shape[2]))
-    if mass_weighting is True:
-        # Remove mass-weighting of coordinates
-        aligned_no_mass_weighting_PCs_separate = [unmass_weighting(atoms, aligned_PCs_separate[i])
-                                                for i in range(n_dim)]
-        aligned_no_mass_weighting_PCs_combined = unmass_weighting(atoms, aligned_PCs_combined)
-    else:
-        aligned_no_mass_weighting_PCs_separate = aligned_PCs_separate
-        aligned_no_mass_weighting_PCs_combined = aligned_PCs_combined
 
-    make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_no_mass_weighting_PCs_separate)
-    make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_no_mass_weighting_PCs_combined)
+
+    make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_separate)
+    make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_combined)
 
     return components_df
 
 
-def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", mass_weighting=False,
+def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False,
                 plot_variance=True):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
-    (slower, but potentally more useful for certain systems that vary in non-linear ways, e.g., torsions).
+    (slower, but potentially more useful for certain systems that vary in non-linear ways, e.g., torsions).
     :param xyz_file_path: xyz file or directory filled with xyz files that will be used to generate the reduced dimensional
     space, str
     :param n_dim: number of dimensions to reduce system to using PCA, int
@@ -589,15 +659,16 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         file_name_end = "_Cartesians"
     elif input_type == "Distances":
         file_name_end = "_Distances"
-    if mass_weighting is True:
+    if MW is True:
         file_name_end = file_name_end + "_MW"
-    elif mass_weighting is False:
+    elif MW is False:
         file_name_end = file_name_end + "_noMW"
 
     file_lengths = []
     if os.path.isfile(xyz_file_path) is True:
         print("\nInput is one file.")
         name, atoms, coordinates = read_file(xyz_file_path)
+        coords_for_analysis = coordinates
 
     elif os.path.isdir(xyz_file_path) is True:
         print("\nInput is a directory of files.")
@@ -608,28 +679,21 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
         # Subroutine for if the input specified is a directory of xyz files
         names = []
+        atoms = []
         i = 0
         for xyz_file in xyz_files:
             i = i + 1
-            name, energies, atoms, coordinates = read_file(xyz_file)
-
-            if mass_weighting is True:
-                coordinates_shifted = set_atom_one_to_origin(coordinates)
-                print("\n(1) Done shifting atom 1 to origin!")
-                atom_masses, mass_weighted_coords = mass_weighting(atoms, coordinates_shifted)
-                coords_for_analysis_single = mass_weighted_coords
-
-            else:
-                coords_for_analysis_single = coordinates
-
+            name, atoms_one_file, coordinates = read_file(xyz_file)
             names.append(name)
-
-            file_lengths.append(coords_for_analysis_single.shape[0])
+            atoms.append(atoms_one_file)
+            file_lengths.append(coordinates.shape[0])
 
             if i == 1:
-                coords_for_analysis = coords_for_analysis_single
+                coords_for_analysis = coordinates
             else:
-                coords_for_analysis = np.concatenate((coords_for_analysis, coords_for_analysis_single), axis=0)
+                coords_for_analysis = np.concatenate((coords_for_analysis, coordinates), axis=0)
+
+        name = "multiple_files"
 
     else:
         print("\nERROR: As the first argument in pathreducer, analyze a single file by specifying that file's name "
@@ -642,35 +706,31 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         os.makedirs(output_directory)
     print("Results for %s input will be stored in %s" % (xyz_file_path, output_directory))
 
-    if mass_weighting is True:
-        coordinates_shifted = set_atom_one_to_origin(coordinates)
-        print("\n(1) Done shifting atom 1 to origin!")
-        atom_masses, mass_weighted_coordinates = mass_weighting(atoms, coordinates_shifted)
-        coords_for_PCA = mass_weighted_coordinates
-
-        print("\n(MW) Done mass-weighting coordinates!")
-
-    else:
-        coords_for_PCA = coordinates
-
     if input_type == "Cartesians":
 
-        coords_for_PCA = kabsch(coords_for_PCA)
-        print("\n(2C) Done aligning structures using Kabsch algorithm")
+        coords_for_PCA = kabsch(coords_for_analysis)
+        print("\n(1C) Done aligning structures using Kabsch algorithm")
+
+        if MW is True:
+            atom_masses, mass_weighted_coordinates = mass_weighting(atoms, coords_for_PCA)
+            coords_for_PCA = mass_weighted_coordinates
+
+            print("\n(MW) Done mass-weighting coordinates!")
 
         coords_for_PCA = np.reshape(coords_for_PCA, (coords_for_PCA.shape[0],
                                                                coords_for_PCA.shape[1] *
                                                                coords_for_PCA.shape[2]))
 
         # PCA
-        cartesians_pca, cartesians_pca_fit, cartesians_components, cartesians_mean, cartesians_values, \
-        PCs_separate, PCs_combined = pca_dr(n_dim, coords_for_PCA)
+        cartesians_pca, cartesians_pca_fit, cartesians_components, cartesians_mean, cartesians_values = \
+            pca_dr(n_dim, coords_for_PCA)
+        PCs_separate, PCs_combined = generate_PC_matrices(n_dim, cartesians_pca, cartesians_components, cartesians_mean)
 
         if plot_variance:
             plot_gof(cartesians_values, name + file_name_end, output_directory)
 
-        print("\n(3) Done with PCA of %s!" % input_type)
-        print("\n(4) Done transforming reduced dimensional representation of input into full dimensional space!")
+        print("\n(2) Done with PCA of %s!" % input_type)
+        print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
 
         # Reshape n x 3N x 1 arrays into n x N x 3 arrays
         PCs_separate = np.reshape(PCs_separate, (PCs_separate.shape[0], PCs_separate.shape[1],
@@ -678,7 +738,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
         PCs_combined = np.reshape(PCs_combined, (1, PCs_combined.shape[0], int(PCs_combined.shape[1] / 3), 3))
 
-        if mass_weighting is True:
+        if MW is True:
             # Remove mass-weighting of coordinates, individual Xs
             no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i]) for i in range(n_dim)]
 
@@ -696,27 +756,61 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
             make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_separate)
             make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_combined)
 
-        print("\n(5) Done with making output xyz files!")
+            print("\n(4) Done with making output xyz files!")
+
+        elif os.path.isdir(xyz_file_path) is True:
+            for x in range(len(file_lengths)):
+                filename = names[x]
+                if x == 0:
+                    start_index = 0
+                    end_index = file_lengths[x]
+                    one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
+                    one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+                else:
+                    start_index = sum(file_lengths[:x])
+                    end_index = sum(file_lengths[:(x + 1)])
+                    one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
+                    one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+
+        print("\nDone generating output!")
 
         return name, output_directory, cartesians_pca, cartesians_pca_fit, cartesians_components, \
-               cartesians_mean, cartesians_values, file_lengths
+               cartesians_mean, cartesians_values, file_lengths, coords_for_analysis
 
     elif input_type == "Distances":
 
-        negatives, positives, zeroes, all_signs = chirality_test(coordinates, stereo_atoms)
+        if MW is True:
+            coordinates_shifted = set_atom_one_to_origin(coordinates)
+            atom_masses, mass_weighted_coordinates = mass_weighting(atoms, coordinates_shifted)
+            coords_for_PCA = mass_weighted_coordinates
 
-        d2 = generate_ds(coords_for_PCA)
-        d_re = reshape_ds(d2)
-        print("\n(2D) Generation of distance matrices and reshaping upper triangles into vectors done!")
+            print("\n(MW) Done mass-weighting coordinates!")
+
+        else:
+            coords_for_PCA = coords_for_analysis
+
+        negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
+
+        if coords_for_PCA.shape[1] > 100:
+            d_re = generate_and_reshape_ds_big_structures(coords_for_PCA)
+        else:
+            d2 = generate_distance_matrices(coords_for_PCA)
+            d_re = reshape_ds(d2)
+        print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
         # PCA on distance matrix
-        d_pca, d_pca_fit, d_components, d_mean, d_values, PCs_separate_d, PCs_combined_d = pca_dr(n_dim, d_re)
+        d_pca, d_pca_fit, d_components, d_mean, d_values = pca_dr(n_dim, d_re)
+        PCs_separate_d, PCs_combined_d = generate_PC_matrices(n_dim, d_pca, d_components, d_mean)
 
         if plot_variance:
             plot_gof(d_values, name + file_name_end, output_directory)
 
-        print("\n(3) Done with PCA of %s!" % input_type)
-        print("\n(4) Done transforming reduced dimensional representation of input into full dimensional space!")
+        print("\n(2) Done with PCA of %s!" % input_type)
+        print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
 
         # Turning distance matrix representations of structures back into Cartesian coordinates
         PCs_separate = [[distance_matrix_to_coords(PCs_separate_d[i][k])
@@ -729,7 +823,9 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         PCs_separate = np.real(PCs_separate)
         PCs_combined = np.real(PCs_combined)
 
-        if mass_weighting is True:
+        print("\n(4D)-(6D) Done with converting distance matrices back to Cartesian coordinates!")
+
+        if MW is True:
             # Remove mass-weighting of coordinates, individual PCs
             no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i])
                                               for i in range(n_dim)]
@@ -740,56 +836,55 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
             no_mass_weighting_PCs_separate = PCs_separate
             no_mass_weighting_PCs_combined = PCs_combined
 
-        print("\n(5D)-(7D) Done with converting distance matrices back to Cartesian coordinates!")
-
-        chirality_consistent_no_mass_weighting_PCs_separate = [chirality_changes_new(no_mass_weighting_PCs_separate[i], stereo_atoms, all_signs)
+        chirality_consistent_PCs_separate = [chirality_changes_new(no_mass_weighting_PCs_separate[i], stereo_atoms, all_signs)
                                                                for i in range(n_dim)]
 
         # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
-        chirality_consistent_no_mass_weighting_PCs_combined = kabsch(chirality_changes_new(no_mass_weighting_PCs_combined, stereo_atoms, all_signs))
+        chirality_consistent_PCs_combined = kabsch(chirality_changes_new(no_mass_weighting_PCs_combined, stereo_atoms, all_signs))
 
-        chirality_consistent_no_mass_weighting_PCs_combined = np.reshape(chirality_consistent_no_mass_weighting_PCs_combined,
+        chirality_consistent_PCs_combined = np.reshape(chirality_consistent_PCs_combined,
                                                      (1,
-                                                      chirality_consistent_no_mass_weighting_PCs_combined.shape[0],
-                                                      chirality_consistent_no_mass_weighting_PCs_combined.shape[1],
-                                                      chirality_consistent_no_mass_weighting_PCs_combined.shape[2]))
+                                                      chirality_consistent_PCs_combined.shape[0],
+                                                      chirality_consistent_PCs_combined.shape[1],
+                                                      chirality_consistent_PCs_combined.shape[2]))
 
         # Align new Cartesian coordinates to ALIGNED original trajectory
         aligned_coordinates = kabsch(coordinates)
-        aligned_no_mass_weighting_PCs_separate = [align_to_original_traj(chirality_consistent_no_mass_weighting_PCs_separate[i], aligned_coordinates)
-                                                  for i in range(len(chirality_consistent_no_mass_weighting_PCs_separate))]
-        aligned_no_mass_weighting_PCs_combined = [align_to_original_traj(chirality_consistent_no_mass_weighting_PCs_combined[i], aligned_coordinates)
-                                                  for i in range(len(chirality_consistent_no_mass_weighting_PCs_combined))]
+        aligned_PCs_separate = [align_to_original_traj(chirality_consistent_PCs_separate[i], aligned_coordinates)
+                                                  for i in range(len(chirality_consistent_PCs_separate))]
+        aligned_PCs_combined = [align_to_original_traj(chirality_consistent_PCs_combined[i], aligned_coordinates)
+                                                  for i in range(len(chirality_consistent_PCs_combined))]
 
-        print("\n(8D) Done checking chirality of resultant structures and aligning!")
+        print("\n(7D) Done checking chirality of resultant structures!")
+        print("\n(8D) Done aligning!")
 
         if os.path.isfile(xyz_file_path) is True:
 
             # Make final structures into xyz files
-            make_xyz_files(output_directory + "/" + name, atoms, aligned_no_mass_weighting_PCs_separate)
-            make_xyz_files(output_directory + "/" + name, atoms, aligned_no_mass_weighting_PCs_combined)
+            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_separate)
+            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_combined)
 
         elif os.path.isdir(xyz_file_path) is True:
             for x in range(len(file_lengths)):
-                name = names[x]
+                filename = names[x]
                 if x == 0:
                     start_index = 0
                     end_index = file_lengths[x]
-                    one_file_PCs_separate = np.array(aligned_no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(aligned_no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + name, atoms, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + name, atoms, one_file_PCs_combined)
+                    one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
+                    one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
                 else:
                     start_index = sum(file_lengths[:x])
                     end_index = sum(file_lengths[:(x + 1)])
-                    one_file_PCs_separate = np.array(aligned_no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(aligned_no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + name + "_D", atoms, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + name + "_D", atoms, one_file_PCs_combined)
+                    one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
+                    one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
 
         print("\nDone generating output!")
 
-        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths
+        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths, aligned_coordinates
 
 
 def generate_deformation_vector(start_structure, end_structure):
