@@ -70,3 +70,5 @@ test_scripts/SN2_IRC_noMW_output/
 patricks_ircs\.py
 
 xyz_files_output/
+
+big_structure_test\.py
