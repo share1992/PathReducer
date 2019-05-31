@@ -202,47 +202,67 @@ def distance_matrix_to_coords(v):
 
 def pca_dr(n_dim, matrix):
     """
-    Standardizes (if necessary) and does PCA on input matrix with specified number of dimensions. Outputs information used to later
-    generate xyz files in the reduced dimensional space and also for the function that filters out distances between
-    key atoms and their neighbors.
+    Does PCA on input matrix with specified number of dimensions. Outputs information used to later generate xyz files
+    in the reduced dimensional space and also for the function that filters out distances between key atoms and their
+    neighbors.
     :param n_dim: int
     :param matrix: array
     :return:
     """
 
-    # Standardize the data using StandardScaler. Only necessary if data is of different scales/in different units
-    # pca_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA(n_components=n_dim))
-    # pcafull_pipeline = pipeline.make_pipeline(preprocessing.StandardScaler(), decomposition.PCA())
-    # pca_std = pca_pipeline.named_steps['pca']
-    # pcafull = pcafull_pipeline.named_steps['pca']
-
     # If using interatomic distances, this matrix size corresponds to 500 atoms. If this is the case, incremental PCA
     # is used.
-    if matrix.shape[1] > 124750:
+    # if matrix.shape[1] > 124750:
+    #
+    #     # print("Doing PCA on %s matrix" % matrix.shape)
+    #
+    #     # print("Large matrix. Doing incremental PCA...")
+    #     print("Large matrix. Doing Sparse PCA...")
+    #
+    #     # pca = decomposition.IncrementalPCA(n_components=n_dim)
+    #     pca = decomposition.SparsePCA(n_components=n_dim, tol=1e-4, verbose=100, alpha=1000)
+    #     pca_full = decomposition.IncrementalPCA()
+    #
+    #     matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
+    #     matrix_pca = pca.transform(pd.DataFrame(matrix))
+    #
+    #     pca_full.fit(pd.DataFrame(matrix))
+    #
+    # else:
 
-        print("Large matrix. Doing incremental PCA...")
+    unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
+    unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
 
-        pca = decomposition.IncrementalPCA(n_components=n_dim)
-        # pca_full = decomposition.IncrementalPCA()
+    pca = unscaled_pca_pipeline.named_steps['pca']
+    pca_full = unscaled_pca_full_pipeline.named_steps['pca']
 
-        matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-        matrix_pca = pca.transform(pd.DataFrame(matrix))
+    matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
+    matrix_pca = pca.transform(pd.DataFrame(matrix))
 
-        # pca_full.fit(pd.DataFrame(matrix))
+    pca_full.fit(pd.DataFrame(matrix))
 
-    else:
-        unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
-        unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
+    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pca_full.explained_variance_
 
-        pca = unscaled_pca_pipeline.named_steps['pca']
-        pca_full = unscaled_pca_full_pipeline.named_steps['pca']
 
-        matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-        matrix_pca = pca.transform(pd.DataFrame(matrix))
+def filter_important_distances(upper_tri_d2_matrices, num_dists=500):
 
-        pca_full.fit(pd.DataFrame(matrix))
+    num_points = upper_tri_d2_matrices.shape[0]
+    vec_length = upper_tri_d2_matrices.shape[1]
 
-    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pca.explained_variance_
+    variances = []
+    for k in range(vec_length):
+        variances.append(np.var(upper_tri_d2_matrices[:, k]))
+
+    important_distances_matrix = np.zeros((num_points, num_dists))
+    top_vars_indexes = top_values_indexes(variances, num_dists)
+
+    i = 0
+    for index in top_vars_indexes:
+        important_distances_matrix[:, i] = upper_tri_d2_matrices[:, index]
+        i += 1
+
+    return important_distances_matrix
+
 
 def generate_PC_matrices(n_dim, matrix_reduced, components, mean):
 
@@ -271,7 +291,7 @@ def calc_ij(k, n):
     return int(i), int(j)
 
 
-def top_values(a, n):
+def top_values_indexes(a, n):
     """
     Determine indexes of n top values of matrix a
     :param a: matrix
@@ -294,9 +314,7 @@ def kabsch(coords):
         coords_kabschi = rmsd.kabsch_rotate(coords[i], coords[0])
         coords_kabsch.append(coords_kabschi)
 
-    coords_kabsch = np.array(coords_kabsch)
-
-    return coords_kabsch
+    return np.array(coords_kabsch)
 
 
 def align_to_original_traj(coords, original_traj_coords):
@@ -313,9 +331,7 @@ def align_to_original_traj(coords, original_traj_coords):
         coords_i = rmsd.kabsch_rotate(coords[i], original_traj_coords[0])
         coords_aligned.append(coords_i)
 
-    coords_aligned = np.array(coords_aligned)
-
-    return coords_aligned
+    return np.array(coords_aligned)
 
 
 def chirality_test(coords, stereo_atoms):
@@ -635,7 +651,7 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
 
 
 def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False,
-                plot_variance=True):
+                plot_variance=True, reconstruct=True):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -732,56 +748,59 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         print("\n(2) Done with PCA of %s!" % input_type)
         print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
 
-        # Reshape n x 3N x 1 arrays into n x N x 3 arrays
-        PCs_separate = np.reshape(PCs_separate, (PCs_separate.shape[0], PCs_separate.shape[1],
-                                                     int(PCs_separate.shape[2] / 3), 3))
+        if reconstruct:
+            # Reshape n x 3N x 1 arrays into n x N x 3 arrays
+            PCs_separate = np.reshape(PCs_separate, (PCs_separate.shape[0], PCs_separate.shape[1],
+                                                         int(PCs_separate.shape[2] / 3), 3))
 
-        PCs_combined = np.reshape(PCs_combined, (1, PCs_combined.shape[0], int(PCs_combined.shape[1] / 3), 3))
+            PCs_combined = np.reshape(PCs_combined, (1, PCs_combined.shape[0], int(PCs_combined.shape[1] / 3), 3))
 
-        if MW is True:
-            # Remove mass-weighting of coordinates, individual Xs
-            no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i]) for i in range(n_dim)]
+            if MW is True:
+                # Remove mass-weighting of coordinates, individual Xs
+                no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i]) for i in range(n_dim)]
 
-            # Remove mass-weighting of coordinates, all Xs combined into one array/reduced dimensional trajectory
-            no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
+                # Remove mass-weighting of coordinates, all Xs combined into one array/reduced dimensional trajectory
+                no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
 
-            print("\n(UMW) Done removing mass-weighting!")
+                print("\n(UMW) Done removing mass-weighting!")
 
-        else:
-            no_mass_weighting_PCs_separate = [PCs_separate[i] for i in range(n_dim)]
-            no_mass_weighting_PCs_combined = PCs_combined
+            else:
+                no_mass_weighting_PCs_separate = [PCs_separate[i] for i in range(n_dim)]
+                no_mass_weighting_PCs_combined = PCs_combined
 
-        # Make xyz files from final coordinate arrays
-        if os.path.isfile(xyz_file_path) is True:
-            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_separate)
-            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_combined)
+            # Make xyz files from final coordinate arrays
+            if os.path.isfile(xyz_file_path) is True:
+                make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_separate)
+                make_xyz_files(output_directory + "/" + name + file_name_end, atoms, no_mass_weighting_PCs_combined)
 
-            print("\n(4) Done with making output xyz files!")
+                print("\n(4) Done with making output xyz files!")
 
-        elif os.path.isdir(xyz_file_path) is True:
-            for x in range(len(file_lengths)):
-                filename = names[x]
-                if x == 0:
-                    start_index = 0
-                    end_index = file_lengths[x]
-                    one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
-                else:
-                    start_index = sum(file_lengths[:x])
-                    end_index = sum(file_lengths[:(x + 1)])
-                    one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+            elif os.path.isdir(xyz_file_path) is True:
+                for x in range(len(file_lengths)):
+                    filename = names[x]
+                    if x == 0:
+                        start_index = 0
+                        end_index = file_lengths[x]
+                        one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
+                        one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+                    else:
+                        start_index = sum(file_lengths[:x])
+                        end_index = sum(file_lengths[:(x + 1)])
+                        one_file_PCs_separate = np.array(no_mass_weighting_PCs_separate)[:, start_index:end_index, :, :]
+                        one_file_PCs_combined = np.array(no_mass_weighting_PCs_combined)[:, start_index:end_index, :, :]
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
 
-        print("\nDone generating output!")
+            print("\nDone generating output!")
 
         return name, output_directory, cartesians_pca, cartesians_pca_fit, cartesians_components, \
                cartesians_mean, cartesians_values, file_lengths, coords_for_analysis
 
     elif input_type == "Distances":
+
+        aligned_coordinates = kabsch(coordinates)
 
         if MW is True:
             coordinates_shifted = set_atom_one_to_origin(coordinates)
@@ -796,7 +815,11 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
 
         if coords_for_PCA.shape[1] > 100:
-            d_re = generate_and_reshape_ds_big_structures(coords_for_PCA)
+            num_dists = 5000
+            print("Big matrix. Using the top %s distances for PCA..." % num_dists)
+            d2_re_matrix = generate_and_reshape_ds_big_structures(coords_for_PCA)
+            d_re = filter_important_distances(d2_re_matrix, num_dists=num_dists)
+            reconstruct = False
         else:
             d2 = generate_distance_matrices(coords_for_PCA)
             d_re = reshape_ds(d2)
@@ -812,75 +835,75 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         print("\n(2) Done with PCA of %s!" % input_type)
         print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
 
-        # Turning distance matrix representations of structures back into Cartesian coordinates
-        PCs_separate = [[distance_matrix_to_coords(PCs_separate_d[i][k])
-                               for k in range(PCs_separate_d.shape[1])] for i in range(PCs_separate_d.shape[0])]
-        # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
-        # into one xyz file)
-        PCs_combined = [distance_matrix_to_coords(PCs_combined_d[i])
-                                  for i in range(np.array(PCs_combined_d).shape[0])]
+        if reconstruct:
+            # Turning distance matrix representations of structures back into Cartesian coordinates
+            PCs_separate = [[distance_matrix_to_coords(PCs_separate_d[i][k])
+                                   for k in range(PCs_separate_d.shape[1])] for i in range(PCs_separate_d.shape[0])]
+            # Turning distance matrix representations of structures back into Cartesian coordinates (all chosen Xs combined
+            # into one xyz file)
+            PCs_combined = [distance_matrix_to_coords(PCs_combined_d[i])
+                                      for i in range(np.array(PCs_combined_d).shape[0])]
 
-        PCs_separate = np.real(PCs_separate)
-        PCs_combined = np.real(PCs_combined)
+            PCs_separate = np.real(PCs_separate)
+            PCs_combined = np.real(PCs_combined)
 
-        print("\n(4D)-(6D) Done with converting distance matrices back to Cartesian coordinates!")
+            print("\n(4D)-(6D) Done with converting distance matrices back to Cartesian coordinates!")
 
-        if MW is True:
-            # Remove mass-weighting of coordinates, individual PCs
-            no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i])
-                                              for i in range(n_dim)]
-            no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
-            print("\n(UMW) Done removing mass-weighting!")
+            if MW is True:
+                # Remove mass-weighting of coordinates, individual PCs
+                no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i])
+                                                  for i in range(n_dim)]
+                no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
+                print("\n(UMW) Done removing mass-weighting!")
 
-        else:
-            no_mass_weighting_PCs_separate = PCs_separate
-            no_mass_weighting_PCs_combined = PCs_combined
+            else:
+                no_mass_weighting_PCs_separate = PCs_separate
+                no_mass_weighting_PCs_combined = PCs_combined
 
-        chirality_consistent_PCs_separate = [chirality_changes_new(no_mass_weighting_PCs_separate[i], stereo_atoms, all_signs)
-                                                               for i in range(n_dim)]
+            chirality_consistent_PCs_separate = [chirality_changes_new(no_mass_weighting_PCs_separate[i], stereo_atoms, all_signs)
+                                                                   for i in range(n_dim)]
 
-        # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
-        chirality_consistent_PCs_combined = kabsch(chirality_changes_new(no_mass_weighting_PCs_combined, stereo_atoms, all_signs))
+            # Reorient coordinates so they are in a consistent coordinate system/chirality, all Xs combined into one array
+            chirality_consistent_PCs_combined = kabsch(chirality_changes_new(no_mass_weighting_PCs_combined, stereo_atoms, all_signs))
 
-        chirality_consistent_PCs_combined = np.reshape(chirality_consistent_PCs_combined,
-                                                     (1,
-                                                      chirality_consistent_PCs_combined.shape[0],
-                                                      chirality_consistent_PCs_combined.shape[1],
-                                                      chirality_consistent_PCs_combined.shape[2]))
+            chirality_consistent_PCs_combined = np.reshape(chirality_consistent_PCs_combined,
+                                                         (1,
+                                                          chirality_consistent_PCs_combined.shape[0],
+                                                          chirality_consistent_PCs_combined.shape[1],
+                                                          chirality_consistent_PCs_combined.shape[2]))
 
-        # Align new Cartesian coordinates to ALIGNED original trajectory
-        aligned_coordinates = kabsch(coordinates)
-        aligned_PCs_separate = [align_to_original_traj(chirality_consistent_PCs_separate[i], aligned_coordinates)
-                                                  for i in range(len(chirality_consistent_PCs_separate))]
-        aligned_PCs_combined = [align_to_original_traj(chirality_consistent_PCs_combined[i], aligned_coordinates)
-                                                  for i in range(len(chirality_consistent_PCs_combined))]
+            # Align new Cartesian coordinates to ALIGNED original trajectory
+            aligned_PCs_separate = [align_to_original_traj(chirality_consistent_PCs_separate[i], aligned_coordinates)
+                                                      for i in range(len(chirality_consistent_PCs_separate))]
+            aligned_PCs_combined = [align_to_original_traj(chirality_consistent_PCs_combined[i], aligned_coordinates)
+                                                      for i in range(len(chirality_consistent_PCs_combined))]
 
-        print("\n(7D) Done checking chirality of resultant structures!")
-        print("\n(8D) Done aligning!")
+            print("\n(7D) Done checking chirality of resultant structures!")
+            print("\n(8D) Done aligning!")
 
-        if os.path.isfile(xyz_file_path) is True:
+            if os.path.isfile(xyz_file_path) is True:
 
-            # Make final structures into xyz files
-            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_separate)
-            make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_combined)
+                # Make final structures into xyz files
+                make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_separate)
+                make_xyz_files(output_directory + "/" + name + file_name_end, atoms, aligned_PCs_combined)
 
-        elif os.path.isdir(xyz_file_path) is True:
-            for x in range(len(file_lengths)):
-                filename = names[x]
-                if x == 0:
-                    start_index = 0
-                    end_index = file_lengths[x]
-                    one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
-                else:
-                    start_index = sum(file_lengths[:x])
-                    end_index = sum(file_lengths[:(x + 1)])
-                    one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
-                    one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
-                    make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+            elif os.path.isdir(xyz_file_path) is True:
+                for x in range(len(file_lengths)):
+                    filename = names[x]
+                    if x == 0:
+                        start_index = 0
+                        end_index = file_lengths[x]
+                        one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
+                        one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
+                    else:
+                        start_index = sum(file_lengths[:x])
+                        end_index = sum(file_lengths[:(x + 1)])
+                        one_file_PCs_separate = np.array(aligned_PCs_separate)[:, start_index:end_index, :, :]
+                        one_file_PCs_combined = np.array(aligned_PCs_combined)[:, start_index:end_index, :, :]
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_separate)
+                        make_xyz_files(output_directory + "/" + filename + file_name_end, atoms_one_file, one_file_PCs_combined)
 
         print("\nDone generating output!")
 
