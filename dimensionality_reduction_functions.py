@@ -11,6 +11,7 @@ import os
 from periodictable import *
 from matplotlib import pyplot as plt
 from sklearn import *
+from sympy import solve, Symbol
 
 def read_file(f):
     """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
@@ -25,15 +26,22 @@ def read_file(f):
     energies = []
     atoms = []
     coordinates = []
+    velocities = []
 
     # Each point along the IRC/traj will be stored as an entry in a 3D array called coordinates_all
     coordinates_all = []
+    velocities_all = []
     for line in xyz:
         splitline = line.split()
         if len(splitline) == 4:
             atom, x, y, z = line.split()
             atoms.append(atom)
             coordinates.append([float(x), float(y), float(z)])
+        elif len(splitline) == 7:
+            atom, x, y, z, vx, vy, vz = line.split()
+            atoms.append(atom)
+            coordinates.append([float(x), float(y), float(z)])
+            velocities.append([float(vx), float(vy), float(vz)])
         elif len(splitline) == 1:
             if type(splitline[0]) == str:
                 pass
@@ -50,10 +58,12 @@ def read_file(f):
             coordinates = []
     else:
         coordinates_all.append(coordinates)
+        velocities_all.append(velocities)
 
     xyz.close()
 
     coordinates_all = np.asarray(coordinates_all)
+    velocities_all = np.asarray(velocities_all)
 
     # Print ERROR if length of coordinate section doesn't match number of atoms specified at beginning of xyz file
     if len(atoms) != n_atoms:
@@ -249,19 +259,35 @@ def filter_important_distances(upper_tri_d2_matrices, num_dists=500):
     num_points = upper_tri_d2_matrices.shape[0]
     vec_length = upper_tri_d2_matrices.shape[1]
 
+    num_atoms = calc_num_atoms(vec_length)
+
     variances = []
+    atom_indexes = {}
     for k in range(vec_length):
         variances.append(np.var(upper_tri_d2_matrices[:, k]))
+        atom1, atom2 = calc_ij(k, num_atoms)
+        atom_indexes[k] = atom1, atom2
 
     important_distances_matrix = np.zeros((num_points, num_dists))
     top_vars_indexes = top_values_indexes(variances, num_dists)
 
     i = 0
+    selected_dist_atom_indexes = {}
     for index in top_vars_indexes:
         important_distances_matrix[:, i] = upper_tri_d2_matrices[:, index]
+        selected_dist_atom_indexes[i] = atom_indexes[index]
         i += 1
 
-    return important_distances_matrix
+    return important_distances_matrix, selected_dist_atom_indexes
+
+
+def calc_num_atoms(vec_length):
+
+    n = Symbol('n', positive=True)
+    answers = solve(n * (n - 1) / 2 - vec_length, n)
+    num_atoms = int(answers[0])
+
+    return num_atoms
 
 
 def generate_PC_matrices(n_dim, matrix_reduced, components, mean):
@@ -501,6 +527,20 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_a
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
 
 
+def print_distance_coeffs_to_files_filtered(atom_indexes, n_dim, pca_components, name, directory):
+
+    for n in range(n_dim):
+        d = []
+        for k in range(len(pca_components[n])):
+            coeff = pca_components[n][k]
+            d.append({'atom 1': atom_indexes[k][0], 'atom 2': atom_indexes[k][1], 'Coefficient of Distance': coeff})
+
+        d_df = pd.DataFrame(d)
+
+        sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
+        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
+
+
 def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms):
 
     for n in range(n_dim):
@@ -651,7 +691,7 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
 
 
 def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False,
-                plot_variance=True, reconstruct=True):
+                plot_variance=True, print_distance_coefficients=True, reconstruct=True):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -814,15 +854,16 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
         negatives, positives, zeroes, all_signs = chirality_test(coords_for_analysis, stereo_atoms)
 
-        if coords_for_PCA.shape[1] > 100:
-            num_dists = 5000
+        if coords_for_PCA.shape[1] > 1000:
+            num_dists = 70000
             print("Big matrix. Using the top %s distances for PCA..." % num_dists)
             d2_re_matrix = generate_and_reshape_ds_big_structures(coords_for_PCA)
-            d_re = filter_important_distances(d2_re_matrix, num_dists=num_dists)
+            d_re, selected_dist_atom_indexes = filter_important_distances(d2_re_matrix, num_dists=num_dists)
             reconstruct = False
         else:
             d2 = generate_distance_matrices(coords_for_PCA)
             d_re = reshape_ds(d2)
+
         print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
         # PCA on distance matrix
@@ -831,6 +872,13 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
         if plot_variance:
             plot_gof(d_values, name + file_name_end, output_directory)
+
+        if print_distance_coefficients:
+            if coords_for_PCA.shape[1] > 1000:
+                print_distance_coeffs_to_files_filtered(selected_dist_atom_indexes, n_dim, d_components,
+                                                        name + file_name_end, output_directory)
+            else:
+                print_distance_coeffs_to_files(output_directory, n_dim, name + file_name_end, d_components, )
 
         print("\n(2) Done with PCA of %s!" % input_type)
         print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
