@@ -10,7 +10,7 @@ import glob
 
 
 def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
-              output_directory=None, points_to_circle=None):
+              output_directory=None, points_to_circle=None, points_to_circle_new_data=None):
     """
     Create a 2D plot or 1D if y == None
     """
@@ -161,8 +161,13 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            # ax0.set_xlim(-40, 100)
-            # ax0.set_ylim(-20, 20)
+            ax0.set_xlim(-40, 100)
+            ax0.set_ylim(-20, 20)
+            ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
+
+            if points_to_circle_new_data is not None:
+                for i in points_to_circle_new_data:
+                    ax0.scatter(new_data[0][i], new_data[1][i], edgecolors='k', facecolors='none', s=200, zorder=5, linewidth=1.5)
 
     if y1 is not None:
         # Do 3D plot
@@ -316,9 +321,15 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
             ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
             ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
-            # ax1.set_xlim(-40, 100)
-            # ax1.set_ylim(-20, 20)
-            # ax1.set_zlim(-20, 30)
+            ax1.set_xlim(-40, 100)
+            ax1.set_ylim(-20, 20)
+            ax1.set_zlim(-20, 30)
+
+            if points_to_circle_new_data is not None:
+                for i in points_to_circle_new_data:
+                    ax1.scatter(new_data[0][i], new_data[1][i], new_data[2][i], edgecolors='k', facecolors='none', s=200,
+                                zorder=5, linewidth=1.5)
+
 
     fig.tight_layout(pad=5)
     fig.subplots_adjust(top=0.88, wspace=0.2)
@@ -355,6 +366,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
         ax0.set_xlabel('PC1', fontsize=16)
         ax0.set_ylabel('PC2', fontsize=16)
         ax0.tick_params(axis='both', labelsize=12)
+        ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
         # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
@@ -373,7 +385,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
             ax0.add_collection(lc)
             time = list(range(len(x)))
-            ax0.scatter(x, y, s=50, c=time, cmap='viridis', zorder=10)
+            ax0.scatter(x, y, s=50, c=time, cmap='viridis', zorder=10, alpha=0.6)
 
             if x2 is not None and y2 is not None:
                 tck2, u2 = interpolate.splprep([x2, y2], k=1, s=0.0)
@@ -387,7 +399,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
                                     linewidth=2)
                 ax0.add_collection(lc2)
                 time = list(range(len(x2)))
-                ax0.scatter(x2, y2, s=50, c=time, cmap='viridis', zorder=10)
+                ax0.scatter(x2, y2, s=50, c=time, cmap='viridis', zorder=10, alpha=0.6)
 
                 x_i = np.concatenate((x_i, x_i2))
                 y_i = np.concatenate((y_i, y_i2))
@@ -499,8 +511,8 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            # ax0.set_xlim(-40, 100)
-            # ax0.set_ylim(-20, 20)
+            ax0.set_xlim(-40, 100)
+            ax0.set_ylim(-20, 20)
 
     if y1 is not None:
         # Do 3D plot
@@ -536,7 +548,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
                                   linewidth=2)
             ax1.add_collection(lc)
-            ax1.scatter(x, y, y1, s=50, c=list(range(len(x))), cmap='viridis')
+            ax1.scatter(x, y, y1, s=50, c=list(range(len(x))), cmap='viridis', alpha=0.6)
 
             if x2 is not None and y2 is not None and y12 is not None:
                 tck, u = interpolate.splprep([x2, y2, y12], k=1, s=0.0)
@@ -680,8 +692,9 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
         plt.show()
 
     else:
-        # plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
-        plt.savefig(output_directory + "/" + imgname + ".eps")
+        # plt.savefig(output_directory + "/" + imgname + ".png", dpi=1200, bbox_inches='tight')
+        # plt.savefig(output_directory + "/" + imgname + ".eps")
+        plt.savefig(output_directory + "/" + imgname + ".pdf")
         plt.clf()
 
 
