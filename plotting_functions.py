@@ -161,8 +161,8 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            ax0.set_xlim(-40, 100)
-            ax0.set_ylim(-20, 20)
+            # ax0.set_xlim(-40, 100)
+            # ax0.set_ylim(-20, 20)
             ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
 
             if points_to_circle_new_data is not None:
@@ -321,9 +321,9 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
             ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
             ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
-            ax1.set_xlim(-40, 100)
-            ax1.set_ylim(-20, 20)
-            ax1.set_zlim(-20, 30)
+            # ax1.set_xlim(-40, 100)
+            # ax1.set_ylim(-20, 20)
+            # ax1.set_zlim(-20, 30)
 
             if points_to_circle_new_data is not None:
                 for i in points_to_circle_new_data:
@@ -489,6 +489,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
 
         # Adding new_data, if it exists
         if new_data is not None:
+
             tck_new, u_new = interpolate.splprep([new_data[0], new_data[1]], k=1, s=0.0)
             x_i_new, y_i_new = interpolate.splev(np.linspace(0, 1, 1000), tck_new)
 
@@ -511,8 +512,8 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            ax0.set_xlim(-40, 100)
-            ax0.set_ylim(-20, 20)
+            # ax0.set_xlim(-40, 100)
+            # ax0.set_ylim(-20, 20)
 
     if y1 is not None:
         # Do 3D plot
@@ -759,7 +760,7 @@ def colored_scatter_plot(x, y, z, directory=None, points_to_circle=None, imgname
         plt.show()
 
 
-def plot_irc(path, imgname, output_directory, points_to_circle=None):
+def plot_irc(path, imgname=None, output_directory=None, points_to_circle=None):
     file = sorted(glob.glob(path + "/*ener1.txt"))
     irc = open(file[0])
     energies = []
@@ -797,8 +798,7 @@ def plot_irc(path, imgname, output_directory, points_to_circle=None):
         for i in points_to_circle:
             ax.scatter(x[i], y[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=2)
 
-    filename = imgname + ".eps"
-
-    plt.savefig(output_directory + "/" + filename, format='eps')
+    if output_directory and imgname:
+        plt.savefig(output_directory + "/" + imgname, format='eps')
 
 
