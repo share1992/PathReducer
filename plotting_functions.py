@@ -339,7 +339,7 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
 
     else:
         # plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
-        plt.savefig(output_directory + "/" + imgname + ".eps")
+        plt.savefig(output_directory + "/" + imgname + ".pdf")
         plt.clf()
 
 def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
