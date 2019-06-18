@@ -390,11 +390,12 @@ def chirality_test(coords, stereo_atoms):
     poss = np.where(np.array(signs) > 0)
     zeros = np.where(np.array(signs) == 0)
 
-    print("\nDetermining chirality of structure at each point of file...")
-    print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
-    print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
-    print("Number of structures with zero-valued determinant (all stereo_atoms in same plane): %s" % np.size(zeros))
-    print("Total structures: %s" % len(signs))
+    # Print statements for debugging purposes
+    # print("\nDetermining chirality of structure at each point of file...")
+    # print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
+    # print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
+    # print("Number of structures with zero-valued determinant (all stereo_atoms in same plane): %s" % np.size(zeros))
+    # print("Total structures: %s" % len(signs))
 
     return negs, poss, zeros, signs
 
@@ -541,7 +542,7 @@ def print_distance_coeffs_to_files_filtered(atom_indexes, n_dim, pca_components,
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
 
 
-def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms):
+def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms, display=False):
 
     for n in range(n_dim):
         d = []
@@ -555,11 +556,13 @@ def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_componen
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
         sorted_d.to_csv(directory + "/" + name + '_PC%s_components_weighted.txt' % (n+1), sep='\t', index=None)
 
+        if display:
+            print("PC%s" % (n+1))
+            print(sorted_d)
+
 
 def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_components, pca_mean, original_traj_coords,
                        stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False):
-    # TODO: add original trajectory as input so new data can be properly aligned to original traj (only matters for
-    #  Cartesians)
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
     conducted and transforms this new data into the reduced dimensional space. Generates a plot, with the new data atop
@@ -730,7 +733,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
         print("\nInput is a directory of files.")
         print("\nDoing dimensionality reduction on files in %s" % xyz_file_path)
 
-        # FIX TO BE ABLE TO DEAL WITH WINDOWS GLOB BEHAVIOR
+        # TODO: FIX TO BE ABLE TO DEAL WITH WINDOWS GLOB BEHAVIOR
         xyz_files = sorted(glob.glob(xyz_file_path + "/" + "*.xyz"))
 
         # Subroutine for if the input specified is a directory of xyz files
@@ -859,6 +862,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
             print("Big matrix. Using the top %s distances for PCA..." % num_dists)
             d2_re_matrix = generate_and_reshape_ds_big_structures(coords_for_PCA)
             d_re, selected_dist_atom_indexes = filter_important_distances(d2_re_matrix, num_dists=num_dists)
+            # TODO: Make reconstruction possible by setting weights on all "non-important" distances to zero
             reconstruct = False
         else:
             d2 = generate_distance_matrices(coords_for_PCA)
@@ -878,7 +882,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
                 print_distance_coeffs_to_files_filtered(selected_dist_atom_indexes, n_dim, d_components,
                                                         name + file_name_end, output_directory)
             else:
-                print_distance_coeffs_to_files(output_directory, n_dim, name + file_name_end, d_components, )
+                print_distance_coeffs_to_files(output_directory, n_dim, name + file_name_end, d_components, len(atoms))
 
         print("\n(2) Done with PCA of %s!" % input_type)
         print("\n(3) Done transforming reduced dimensional representation of input into full dimensional space!")
