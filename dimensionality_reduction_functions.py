@@ -804,10 +804,10 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
 
             if MW is True:
                 # Remove mass-weighting of coordinates, individual Xs
-                no_mass_weighting_PCs_separate = [unmass_weighting(atoms, PCs_separate[i]) for i in range(n_dim)]
+                no_mass_weighting_PCs_separate = [remove_mass_weighting(atoms, PCs_separate[i]) for i in range(n_dim)]
 
                 # Remove mass-weighting of coordinates, all Xs combined into one array/reduced dimensional trajectory
-                no_mass_weighting_PCs_combined = unmass_weighting(atoms, PCs_combined)
+                no_mass_weighting_PCs_combined = remove_mass_weighting(atoms, PCs_combined)
 
                 print("\n(UMW) Done removing mass-weighting!")
 
