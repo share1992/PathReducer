@@ -8,20 +8,31 @@ import pandas as pd
 import math
 import glob
 import os
+import ntpath
 from periodictable import *
 from matplotlib import pyplot as plt
 from sklearn import *
 from sympy import solve, Symbol
 
-def read_file(f):
+#TODO: Add function for adding linear combinations of eigenvectors to display PCs as normal modes
+
+
+def path_leaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
+
+
+def read_file(path):
     """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
     coordinates_all is arranged as coordinates_all[n][N][c], where n is the IRC point, N is the atom number, and c
     is the x, y, or z coordinate.
     """
-    print("File being read is: %s" % f)
-    name = f.split('/')[-1].split('.')[-2]
+    system_name = path_leaf(path)
+    print("File being read is: %s" % system_name)
 
-    xyz = open(f)
+    extensionless_system_name = os.path.splitext(system_name)[0]
+
+    xyz = open(path)
     n_atoms = int(xyz.readline())
     energies = []
     atoms = []
