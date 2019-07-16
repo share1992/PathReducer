@@ -82,7 +82,7 @@ def read_file(path):
         print("number of atoms in file: %d" % len(atoms))
         print("number of coordinates:   %d" % len(coordinates))
 
-    return name, atoms, coordinates_all
+    return extensionless_system_name, atoms, coordinates_all
 
 
 def set_atom_one_to_origin(coordinates):
