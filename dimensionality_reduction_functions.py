@@ -92,29 +92,25 @@ def set_atom_one_to_origin(coordinates):
 
 
 def mass_weighting(atoms, coordinates):
-    atom_masses = []
-    for atom in atoms:
-        atom_mass = formula(atom).mass
-        atom_masses.append(atom_mass)
 
+    coordinates = np.array(coordinates)
+    atoms = np.array(atoms)
+
+    atom_masses = [formula(atom).mass for atom in atoms]
     weighting = np.sqrt(atom_masses)
-    weighting_tri = np.column_stack((weighting, weighting, weighting))
+    mass_weighted_coords = coordinates * weighting[np.newaxis, :, np.newaxis]
 
-    mass_weighted_coords = coordinates * weighting_tri[np.newaxis, :, :]
-
-    return atom_masses, mass_weighted_coords
+    return mass_weighted_coords
 
 
-def unmass_weighting(atoms, coordinates):
-    atom_masses = []
-    for atom in atoms:
-        atom_mass = formula(atom).mass
-        atom_masses.append(atom_mass)
+def remove_mass_weighting(atoms, coordinates):
 
+    coordinates = np.array(coordinates)
+    atoms = np.array(atoms)
+
+    atom_masses = [formula(atom).mass for atom in atoms]
     weighting = np.sqrt(atom_masses)
-    weighting_tri = np.column_stack((weighting, weighting, weighting))
-
-    unmass_weighted_coords = coordinates / weighting_tri[np.newaxis, :, :]
+    unmass_weighted_coords = coordinates / weighting[np.newaxis, :, np.newaxis]
 
     return unmass_weighted_coords
 
