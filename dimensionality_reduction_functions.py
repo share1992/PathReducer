@@ -425,31 +425,28 @@ def chirality_changes_new(coords_reconstr, stereo_atoms, signs_orig):
             if i > 0 and signs_reconstr[i] != signs_reconstr[0]:
                 coords[i] = -coords[i]
         elif signs_reconstr[i] != signs_orig[i]:
-            # Switch sign of signs_reconstr by reflecting coordinates of that point
-            # print("Switching chirality of structure %s...\n" % i)
-
-            # Three coordinates switched
             coords[i] = -coords[i]
 
     return coords
 
 
-def make_xyz_files(name, atoms, xyz_coords):
+def make_pc_xyz_files(output_directory, title, atoms, coordinates):
     """ Save principal coordinates as xyz files PC[n].xyz to output directory.
+    :param output_directory: output directory to store xyz files, str
     :param atoms: atoms in input trajectory, list
-    :param name: name of the input system, str
-    :param xyz_coords: xyz coordinates of structures along PCi, list or numpy array
+    :param title: name of the input system, str
+    :param coordinates: xyz coordinates of structures along PCi, list or numpy array
     """
 
-    for k in range(np.array(xyz_coords).shape[0]):
-        if np.array(xyz_coords).shape[0] == 1:
-            f = open('%s_all_PCs.xyz' % name, 'w')
+    for k in range(np.array(coordinates).shape[0]):
+        if np.array(coordinates).shape[0] == 1:
+            f = open(os.path.join(output_directory, '%s_all_PCs.xyz' % title), 'w')
         else:
-            f = open('%s_PC%s.xyz' % (name, k + 1), 'w')
+            f = open(os.path.join(output_directory, '%s_PC%s.xyz' % (title, k + 1)), 'w')
 
-        for i in range(len(xyz_coords[k])):
+        for i in range(len(coordinates[k])):
 
-            a = xyz_coords[k][i]
+            a = coordinates[k][i]
             a = a.tolist()
             b = []
             for j in range(len(a)):
