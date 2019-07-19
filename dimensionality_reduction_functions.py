@@ -238,51 +238,59 @@ def distance_matrix_to_coords(v):
     return coords
 
 
-def pca_dr(n_dim, matrix):
+def pca_dr(matrix):
     """
     Does PCA on input matrix with specified number of dimensions. Outputs information used to later generate xyz files
     in the reduced dimensional space and also for the function that filters out distances between key atoms and their
     neighbors.
-    :param n_dim: int
     :param matrix: array
-    :return:
+    :return: matrix_pca: input data (in matrix) projected onto covariance matrix eigenvectors (PCs)
+            matrix_pca_fit: fit used to transform new data into reduced dimensional space
+            covar_matrix.components_: eigenvectors of covariance matrix
+            covar_matrix.mean_: mean of the original dataset (in matrix)
+            covar_matrix.explained_variance_: amount of variance described by each PC
     """
 
-    # If using interatomic distances, this matrix size corresponds to 500 atoms. If this is the case, incremental PCA
-    # is used.
-    # if matrix.shape[1] > 124750:
-    #
-    #     # print("Doing PCA on %s matrix" % matrix.shape)
-    #
-    #     # print("Large matrix. Doing incremental PCA...")
-    #     print("Large matrix. Doing Sparse PCA...")
-    #
-    #     # pca = decomposition.IncrementalPCA(n_components=n_dim)
-    #     pca = decomposition.SparsePCA(n_components=n_dim, tol=1e-4, verbose=100, alpha=1000)
-    #     pca_full = decomposition.IncrementalPCA()
-    #
-    #     matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-    #     matrix_pca = pca.transform(pd.DataFrame(matrix))
-    #
-    #     pca_full.fit(pd.DataFrame(matrix))
-    #
-    # else:
+    matrix = pd.DataFrame(matrix)
 
-    unscaled_pca_pipeline = pipeline.make_pipeline(decomposition.PCA(n_components=n_dim, svd_solver='full'))
-    unscaled_pca_full_pipeline = pipeline.make_pipeline(decomposition.PCA(svd_solver='full'))
+    covar_matrix = decomposition.PCA()
 
-    pca = unscaled_pca_pipeline.named_steps['pca']
-    pca_full = unscaled_pca_full_pipeline.named_steps['pca']
+    matrix_pca_fit = covar_matrix.fit(matrix)
+    matrix_pca = covar_matrix.transform(matrix)
 
-    matrix_pca_fit = pca.fit(pd.DataFrame(matrix))
-    matrix_pca = pca.transform(pd.DataFrame(matrix))
+    return matrix_pca, matrix_pca_fit, covar_matrix.components_, covar_matrix.mean_, covar_matrix.explained_variance_
 
-    pca_full.fit(pd.DataFrame(matrix))
+#TODO: Add function that is able to do LDA on data rather than PCA
+def lca_dr(matrix, data_labels):
+    """
+    Does LCA (Linear Discriminant Analysis) on input matrix with specified number of dimensions. Outputs information
+    used to later generate xyz files in the reduced dimensional space and also for the function that filters out
+    distances between key atoms and their neighbors.
+    :param n_dim: int
+    :param matrix: array
+    :return: matrix_pca: input data (in matrix) projected onto covariance matrix eigenvectors (PCs)
+            matrix_pca_fit: fit used to transform new data into reduced dimensional space
+            covar_matrix.components_: eigenvectors of covariance matrix
+            covar_matrix.mean_: mean of the original dataset (in matrix)
+            covar_matrix.explained_variance_: amount of variance described by each PC
+    """
 
-    return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pca_full.explained_variance_
+    matrix = pd.DataFrame(matrix)
+
+    lda = discriminant_analysis.LinearDiscriminantAnalysis()
+
+    matrix_lda_fit = lda.fit(matrix, data_labels)
+    matrix_lda = lda.transform(matrix)
+
+    return matrix_lda, matrix_lda_fit, lda.components_, lda.mean_, lda.explained_variance_
 
 
-def filter_important_distances(upper_tri_d2_matrices, num_dists=500):
+def calc_mean_distance_vector(d2_matrix):
+
+    return np.mean(d2_matrix, axis=0)
+
+
+def filter_important_distances(upper_tri_d2_matrices, num_dists=5000):
 
     num_points = upper_tri_d2_matrices.shape[0]
     vec_length = upper_tri_d2_matrices.shape[1]
