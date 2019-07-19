@@ -9,167 +9,277 @@ import os
 import glob
 
 
-def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
-              output_directory=None, points_to_circle=None, points_to_circle_new_data=None):
-    """
-    Create a 2D plot or 1D if y == None
-    """
+def gradient_color_change_magic(x, y, z=None):
+    if z is None:
 
-    if y is None and y1 is None:
-        plt.figure(figsize=(8, 4))
-        # Do 1D plot
-        plt.plot(range(len(x)), x)
+        # fit spline
+        tck, u = interpolate.splprep([x, y], k=1, s=0.0)
+        x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+
+        # Gradient color change magic
+        x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+        points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        lc = LineCollection(segments, array=x_arr, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
+
+    elif z is not None:
+        # fit spline
+        tck, u = interpolate.splprep([x, y, z], k=1, s=0.0)
+        x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+
+        # Gradient color change magic
+        x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+        points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        lc = Line3DCollection(segments, array=x_arr, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+
+    return lc
+
+
+def colored_line_plot(x, y, z=None, x2=None, y2=None, z2=None, imgname=None, same_axis=False, lengths=None,
+                      output_directory=None, points_to_circle=None):
+    """
+    Create a 2D and/or 3D plot
+    """
+    # Create figure
+    fig = plt.figure(figsize=(10, 5))
+    gs = GridSpec(1, 2)
+    # Do 2D plot
+    ax0 = fig.add_subplot(gs[0])
+    ax0.grid(True)
+
+    ax0.set_xlabel('PC1', fontsize=16)
+    ax0.set_ylabel('PC2', fontsize=16)
+    ax0.tick_params(axis='both', labelsize=12)
+
+    if lengths is None:
+        # One trajectory
+        lc = gradient_color_change_magic(x, y)
+        ax0.add_collection(lc)
+
+        if x2 is not None and y2 is not None:
+            lc2 = gradient_color_change_magic(x2, y2)
+            ax0.add_collection(lc2)
+
     else:
-        # Do 2D plot
+        # Multiple concatenated trajectories
+        for i in range(len(lengths)):
+            if i == 0:
+                xseg = x[0:lengths[i]]
+                yseg = y[0:lengths[i]]
 
-        # Create figure
-        fig = plt.figure(figsize=(10, 5))
-        # gs = GridSpec(2, 1, height_ratios=[2, 1])
-        gs = GridSpec(1, 2)
-        ax0 = fig.add_subplot(gs[0])
-        ax0.grid(True)
+                lc = gradient_color_change_magic(xseg, yseg)
+                ax0.add_collection(lc)
 
-        ax0.set_xlabel('PC1', fontsize=16)
-        ax0.set_ylabel('PC2', fontsize=16)
-        ax0.tick_params(axis='both', labelsize=12)
-        # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-
-        # ax1 = plt.subplot(gs[1])
-
-        if lengths is None:
-            # ax0
-            # fit spline
-            tck, u = interpolate.splprep([x, y], k=1, s=0.0)
-            x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
-
-            # Gradient color change magic
-            z = np.linspace(0.0, 1.0, x_i.shape[0])
-            points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
-            segments = np.concatenate([points[:-1], points[1:]], axis=1)
-            lc = LineCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8, linewidth=2)
-            ax0.add_collection(lc)
-
-            if points_to_circle is not None:
-                for i in points_to_circle:
-                    ax0.scatter(x[i], y[i], edgecolors='k', facecolors='none', s=50, zorder=5)
-
-            if x2 is not None and y2 is not None:
-                tck2, u2 = interpolate.splprep([x2, y2], k=1, s=0.0)
-                x_i2, y_i2 = interpolate.splev(np.linspace(0, 1, 1000), tck2)
-
-                # Gradient color change magic
-                z = np.linspace(0.0, 1.0, x_i2.shape[0])
-                points2 = np.array([x_i2, y_i2]).T.reshape(-1, 1, 2)
-                segments2 = np.concatenate([points2[:-1], points2[1:]], axis=1)
-                lc2 = LineCollection(segments2, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
-                                    linewidth=2)
-                ax0.add_collection(lc2)
-
-                x_i = np.concatenate((x_i, x_i2))
-                y_i = np.concatenate((y_i, y_i2))
-
-            # plotting
-            if same_axis:
-                max_ = max(x_i.max(), y_i.max())
-                min_ = min(x_i.min(), y_i.min())
-                range_ = max_ - min_
-                ax0.set_xlim([min_-0.1*range_, max_+0.1*range_])
-                ax0.set_ylim([min_-0.1*range_, max_+0.1*range_])
             else:
-                xrange_ = x_i.max() - x_i.min()
-                yrange_ = y_i.max() - y_i.min()
-                ax0.set_xlim([x_i.min()-0.1*xrange_, x_i.max()+0.1*xrange_])
-                ax0.set_ylim([y_i.min()-0.1*yrange_, y_i.max()+0.1*yrange_])
+                start_index = sum(lengths[:i])
+                end_index = sum(lengths[:(i+1)])
+                xseg = x[start_index:end_index]
+                yseg = y[start_index:end_index]
 
-            # time plots
-            # ax1.plot(range(len(x)), x)
-            # ax1.plot(range(len(y)), y)
+                lc = gradient_color_change_magic(xseg, yseg)
+                ax0.add_collection(lc)
+
+    if z is not None:
+        # Do 3D plot
+        ax1 = fig.add_subplot(gs[1], projection='3d')
+        ax1.set_xlabel('PC1', fontsize=16, labelpad=9)
+        ax1.set_ylabel('PC2', fontsize=16, labelpad=7)
+        ax1.set_zlabel('PC3', fontsize=16, labelpad=7)
+        ax1.tick_params(axis='both', labelsize=12)
+        ax1.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax1.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax1.dist = 9
+
+        if lengths is None or sum(lengths) == 0:
+            # ax1
+            # fit spline
+            lc = gradient_color_change_magic(x, y, z)
+            ax1.add_collection(lc)
+
+            if x2 is not None and y2 is not None and z2 is not None:
+                lc2 = gradient_color_change_magic(x2, y2, z2)
+                ax1.add_collection(lc2)
+
+                x = np.concatenate((x, x2))
+                y = np.concatenate((y, y2))
+                z = np.concatenate((z, z2))
 
         elif lengths is not None:
             for i in range(len(lengths)):
                 if i == 0:
                     xseg = x[0:lengths[i]]
                     yseg = y[0:lengths[i]]
-
-                    # ax0
-                    # fit spline
-                    tck, u = interpolate.splprep([xseg, yseg], k=1, s=0.0)
-                    x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
-
-                    # Gradient color change magic
-                    z = np.linspace(0.0, 1.0, x_i.shape[0])
-                    points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
-                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, array=z, cmap='viridis',
-                                        norm=plt.Normalize(0.0, 1.0), alpha=0.8)
-                    ax0.add_collection(lc)
+                    zseg = z[0:lengths[i]]
 
                 else:
                     start_index = sum(lengths[:i])
                     end_index = sum(lengths[:(i+1)])
-                    # print("start_index = %s" % start_index)
-                    # print("end_index = %s" % end_index)
                     xseg = x[start_index:end_index]
                     yseg = y[start_index:end_index]
+                    zseg = z[start_index:end_index]
 
-                    # ax0
-                    # fit spline
-                    tck, u = interpolate.splprep([xseg, yseg], k=1, s=0.0)
-                    x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+                lc = gradient_color_change_magic(xseg, yseg, zseg)
+                ax1.add_collection(lc)
 
-                    # Gradient color change magic
-                    z = np.linspace(0.0, 1.0, x_i.shape[0])
-                    points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
-                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = LineCollection(segments, array=z, cmap='viridis',
-                                        norm=plt.Normalize(0.0, 1.0), alpha=0.8)
-                    ax0.add_collection(lc)
+    # Setting axis limits
+    if same_axis:
+        max_ = max(x.max(), y.max(), z.max())
+        min_ = min(x.min(), y.min(), z.min())
+        range_ = max_ - min_
+        ax0.set_xlim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+        ax0.set_ylim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+        if z is not None:
+            ax1.set_xlim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+            ax1.set_ylim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+            ax1.set_zlim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+    else:
+        xrange_ = x.max() - x.min()
+        yrange_ = y.max() - y.min()
+        zrange_ = z.max() - z.min()
+        ax0.set_xlim([x.min() - 0.1 * xrange_, x.max() + 0.1 * xrange_])
+        ax0.set_ylim([y.min() - 0.1 * yrange_, y.max() + 0.1 * yrange_])
+        if z is not None:
+            ax1.set_xlim([x.min() - 0.1 * xrange_, x.max() + 0.1 * xrange_])
+            ax1.set_ylim([y.min() - 0.1 * yrange_, y.max() + 0.1 * yrange_])
+            ax1.set_zlim([z.min() - 0.1 * zrange_, z.max() + 0.1 * zrange_])
 
-            # Setting axis limits
-            if same_axis:
-                max_ = max(x.max(), y.max())
-                min_ = min(x.min(), y.min())
-                range_ = max_ - min_
-                ax0.set_xlim([min_ - 0.1 * range_, max_ + 0.1 * range_])
-                ax0.set_ylim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+    if points_to_circle is not None:
+        for i in points_to_circle:
+            ax0.scatter(x[i], y[i], edgecolors='k', facecolors='none', s=50, zorder=5)
+            if z is not None:
+                ax1.scatter(x[i], y[i], z[i], edgecolors='k', facecolors='none', s=50, zorder=5)
+
+    fig.tight_layout(pad=5)
+    fig.subplots_adjust(top=0.88, wspace=0.2)
+
+    plt.show()
+    plt.savefig(os.path.join(output_directory, imgname + ".pdf"))
+    plt.clf()
+
+
+def colored_line_plot_projected_data(x, y, new_data_x, new_data_y=None, z=None, new_data_z=None, x2=None, y2=None,
+                                     z2=None, imgname=None, lengths=None, new_data=None, output_directory=None,
+                                     points_to_circle=None, points_to_circle_new_data=None, same_axis=False):
+
+    # Create figure
+    fig = plt.figure(figsize=(10, 5))
+    gs = GridSpec(1, 2)
+    ax0 = fig.add_subplot(gs[0])
+    ax0.grid(True)
+
+    ax0.set_xlabel('PC1', fontsize=16)
+    ax0.set_ylabel('PC2', fontsize=16)
+    ax0.tick_params(axis='both', labelsize=12)
+
+    if lengths is None:
+        lc = gradient_color_change_magic(x, y)
+        ax0.add_collection(lc)
+
+        if x2 is not None and y2 is not None:
+            lc2 = gradient_color_change_magic(x2, y2)
+            ax0.add_collection(lc2)
+
+            x = np.concatenate((x, x2))
+            y = np.concatenate((y, y2))
+
+        # plotting
+        if same_axis:
+            max_ = max(x_i.max(), y_i.max())
+            min_ = min(x_i.min(), y_i.min())
+            range_ = max_ - min_
+            ax0.set_xlim([min_-0.1*range_, max_+0.1*range_])
+            ax0.set_ylim([min_-0.1*range_, max_+0.1*range_])
+        else:
+            xrange_ = x_i.max() - x_i.min()
+            yrange_ = y_i.max() - y_i.min()
+            ax0.set_xlim([x_i.min()-0.1*xrange_, x_i.max()+0.1*xrange_])
+            ax0.set_ylim([y_i.min()-0.1*yrange_, y_i.max()+0.1*yrange_])
+
+    elif lengths is not None:
+        for i in range(len(lengths)):
+            if i == 0:
+                xseg = x[0:lengths[i]]
+                yseg = y[0:lengths[i]]
+
+                # ax0
+                # fit spline
+                tck, u = interpolate.splprep([xseg, yseg], k=1, s=0.0)
+                x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+
+                # Gradient color change magic
+                x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+                points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                lc = LineCollection(segments, array=x_arr, cmap='viridis',
+                                    norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+                ax0.add_collection(lc)
+
             else:
-                xrange_ = x.max() - x.min()
-                yrange_ = y.max() - y.min()
-                ax0.set_xlim([x.min() - 0.1 * xrange_, x.max() + 0.1 * xrange_])
-                ax0.set_ylim([y.min() - 0.1 * yrange_, y.max() + 0.1 * yrange_])
+                start_index = sum(lengths[:i])
+                end_index = sum(lengths[:(i+1)])
+                # print("start_index = %s" % start_index)
+                # print("end_index = %s" % end_index)
+                xseg = x[start_index:end_index]
+                yseg = y[start_index:end_index]
 
-        # Adding new_data, if it exists
-        if new_data is not None:
-            tck_new, u_new = interpolate.splprep([new_data[0], new_data[1]], k=1, s=0.0)
-            x_i_new, y_i_new = interpolate.splev(np.linspace(0, 1, 1000), tck_new)
+                # ax0
+                # fit spline
+                tck, u = interpolate.splprep([xseg, yseg], k=1, s=0.0)
+                x_i, y_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
 
-            # Gradient color change magic
-            z_new = np.linspace(0.0, 1.0, x_i_new.shape[0])
-            points_new = np.array([x_i_new, y_i_new]).T.reshape(-1, 1, 2)
-            segments_new = np.concatenate([points_new[:-1], points_new[1:]], axis=1)
-            lc_new = LineCollection(segments_new, array=z_new, cmap='viridis', norm=plt.Normalize(0.0, 1.0),
-                                linestyle="solid", linewidth=2.5)
-            lca_new = LineCollection(segments_new, color='black', linestyle="solid", linewidth=5.0)
-            ax0.add_collection(lca_new)
-            ax0.add_collection(lc_new)
+                # Gradient color change magic
+                x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+                points = np.array([x_i, y_i]).T.reshape(-1, 1, 2)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                lc = LineCollection(segments, array=x_arr, cmap='viridis',
+                                    norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+                ax0.add_collection(lc)
 
-            x_i_new = np.concatenate((x_i, x_i_new))
-            y_i_new = np.concatenate((y_i, y_i_new))
+        # Setting axis limits
+        if same_axis:
+            max_ = max(x.max(), y.max())
+            min_ = min(x.min(), y.min())
+            range_ = max_ - min_
+            ax0.set_xlim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+            ax0.set_ylim([min_ - 0.1 * range_, max_ + 0.1 * range_])
+        else:
+            xrange_ = x.max() - x.min()
+            yrange_ = y.max() - y.min()
+            ax0.set_xlim([x.min() - 0.1 * xrange_, x.max() + 0.1 * xrange_])
+            ax0.set_ylim([y.min() - 0.1 * yrange_, y.max() + 0.1 * yrange_])
 
-            xrange_ = x_i_new.max() - x_i_new.min()
-            yrange_ = y_i_new.max() - y_i_new.min()
-            ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
-            ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            # ax0.set_xlim(-40, 100)
-            # ax0.set_ylim(-20, 20)
-            ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
+    # Adding new_data, if it exists
+    if new_data is not None:
+        tck_new, u_new = interpolate.splprep([new_data_x, new_data_y], k=1, s=0.0)
+        x_i_new, y_i_new = interpolate.splev(np.linspace(0, 1, 1000), tck_new)
 
-            if points_to_circle_new_data is not None:
-                for i in points_to_circle_new_data:
-                    ax0.scatter(new_data[0][i], new_data[1][i], edgecolors='k', facecolors='none', s=200, zorder=5, linewidth=1.5)
+        # Gradient color change magic
+        z_new = np.linspace(0.0, 1.0, x_i_new.shape[0])
+        points_new = np.array([x_i_new, y_i_new]).T.reshape(-1, 1, 2)
+        segments_new = np.concatenate([points_new[:-1], points_new[1:]], axis=1)
+        lc_new = LineCollection(segments_new, array=z_new, cmap='viridis', norm=plt.Normalize(0.0, 1.0),
+                            linestyle="solid", linewidth=2.5)
+        lca_new = LineCollection(segments_new, color='black', linestyle="solid", linewidth=5.0)
+        ax0.add_collection(lca_new)
+        ax0.add_collection(lc_new)
 
-    if y1 is not None:
+        x_i_new = np.concatenate((x_i, x_i_new))
+        y_i_new = np.concatenate((y_i, y_i_new))
+
+        xrange_ = x_i_new.max() - x_i_new.min()
+        yrange_ = y_i_new.max() - y_i_new.min()
+        ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
+        ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
+        # ax0.set_xlim(-40, 100)
+        # ax0.set_ylim(-20, 20)
+        ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
+
+        if points_to_circle_new_data is not None:
+            for i in points_to_circle_new_data:
+                ax0.scatter(new_data[0][i], new_data[1][i], edgecolors='k', facecolors='none', s=200, zorder=5, linewidth=1.5)
+
+    if z is not None:
         # Do 3D plot
 
         ax1 = fig.add_subplot(gs[1], projection='3d')
@@ -188,147 +298,138 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
         # ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
         # ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
-        if points_to_circle is not None:
-            for i in points_to_circle:
-                ax1.scatter(x[i], y[i], y1[i], edgecolors='k', facecolors='none', s=50, zorder=5)
+    if points_to_circle is not None:
+        for i in points_to_circle:
+            ax0.scatter(x[i], y[i], edgecolors='k', facecolors='none', s=50, zorder=5)
+            if z is not None:
+                ax1.scatter(x[i], y[i], z[i], edgecolors='k', facecolors='none', s=50, zorder=5)
 
-        if lengths is None or sum(lengths) == 0:
+    if lengths is None or sum(lengths) == 0:
+        lc = gradient_color_change_magic(x, y, z)
+        ax1.add_collection(lc)
 
-            # ax1
-            # fit spline
-            tck, u = interpolate.splprep([x, y, y1], k=1, s=0.0)
-            x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+        if x2 is not None and y2 is not None and z2 is not None:
+            tck, u = interpolate.splprep([x2, y2, z2], k=1, s=0.0)
+            x_i2, y_i2, z_i2 = interpolate.splev(np.linspace(0, 1, 1000), tck)
 
             # Gradient color change magic
-            z = np.linspace(0.0, 1.0, x_i.shape[0])
-            points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
+            z2 = np.linspace(0.0, 1.0, x_i2.shape[0])
+            points = np.array([x_i2, y_i2, z_i2]).T.reshape(-1, 1, 3)
             segments = np.concatenate([points[:-1], points[1:]], axis=1)
-            lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
+            lc2 = Line3DCollection(segments, array=z2, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
                                   linewidth=2)
-            ax1.add_collection(lc)
+            ax1.add_collection(lc2)
 
-            if x2 is not None and y2 is not None and y12 is not None:
-                tck, u = interpolate.splprep([x2, y2, y12], k=1, s=0.0)
-                x_i2, y_i2, z_i2 = interpolate.splev(np.linspace(0, 1, 1000), tck)
+            x_i = np.concatenate((x_i, x_i2))
+            y_i = np.concatenate((y_i, y_i2))
+            z_i = np.concatenate((z_i, z_i2))
+
+        # Setting axis limits
+        if same_axis:
+            max_ = max(x_i.max(), y_i.max(), z_i.max())
+            min_ = min(x_i.min(), y_i.min(), z_i.min())
+            range_ = max_ - min_
+            ax1.set_xlim([min_-0.1*range_, max_+0.1*range_])
+            ax1.set_ylim([min_-0.1*range_, max_+0.1*range_])
+            ax1.set_zlim([min_-0.1*range_, max_+0.1*range_])
+        else:
+            xrange_ = x_i.max() - x_i.min()
+            yrange_ = y_i.max() - y_i.min()
+            zrange_ = z_i.max() - z_i.min()
+            ax1.set_xlim([x_i.min()-0.1*xrange_, x_i.max()+0.1*xrange_])
+            ax1.set_ylim([y_i.min()-0.1*yrange_, y_i.max()+0.1*yrange_])
+            ax1.set_zlim([z_i.min()-0.1*zrange_, z_i.max()+0.1*zrange_])
+
+    elif lengths is not None:
+        for i in range(len(lengths)):
+            if i == 0:
+                xseg = x[0:lengths[i]]
+                yseg = y[0:lengths[i]]
+                zseg = z[0:lengths[i]]
+
+                # ax1
+                # fit spline
+                tck, u = interpolate.splprep([xseg, yseg, zseg], k=1, s=0.0)
+                x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
 
                 # Gradient color change magic
-                z2 = np.linspace(0.0, 1.0, x_i2.shape[0])
-                points = np.array([x_i2, y_i2, z_i2]).T.reshape(-1, 1, 3)
+                x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+                points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                lc2 = Line3DCollection(segments, array=z2, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8,
-                                      linewidth=2)
-                ax1.add_collection(lc2)
+                lc = Line3DCollection(segments, array=x_arr, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+                ax1.add_collection(lc)
 
-                x_i = np.concatenate((x_i, x_i2))
-                y_i = np.concatenate((y_i, y_i2))
-                z_i = np.concatenate((z_i, z_i2))
-
-            # Setting axis limits
-            if same_axis:
-                max_ = max(x_i.max(), y_i.max(), z_i.max())
-                min_ = min(x_i.min(), y_i.min(), z_i.min())
-                range_ = max_ - min_
-                ax1.set_xlim([min_-0.1*range_, max_+0.1*range_])
-                ax1.set_ylim([min_-0.1*range_, max_+0.1*range_])
-                ax1.set_zlim([min_-0.1*range_, max_+0.1*range_])
             else:
-                xrange_ = x_i.max() - x_i.min()
-                yrange_ = y_i.max() - y_i.min()
-                zrange_ = z_i.max() - z_i.min()
-                ax1.set_xlim([x_i.min()-0.1*xrange_, x_i.max()+0.1*xrange_])
-                ax1.set_ylim([y_i.min()-0.1*yrange_, y_i.max()+0.1*yrange_])
-                ax1.set_zlim([z_i.min()-0.1*zrange_, z_i.max()+0.1*zrange_])
+                start_index = sum(lengths[:i])
+                end_index = sum(lengths[:(i+1)])
+                # print("start_index = %s" % start_index)
+                # print("end_index = %s" % end_index)
+                xseg = x[start_index:end_index]
+                yseg = y[start_index:end_index]
+                zseg = z[start_index:end_index]
 
-        elif lengths is not None:
-            for i in range(len(lengths)):
-                if i == 0:
-                    xseg = x[0:lengths[i]]
-                    yseg = y[0:lengths[i]]
-                    zseg = y1[0:lengths[i]]
+                # ax1
+                # fit spline
+                tck, u = interpolate.splprep([xseg, yseg, zseg], k=1, s=0.0)
+                x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
 
-                    # ax1
-                    # fit spline
-                    tck, u = interpolate.splprep([xseg, yseg, zseg], k=1, s=0.0)
-                    x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+                # Gradient color change magic
+                x_arr = np.linspace(0.0, 1.0, x_i.shape[0])
+                points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
+                segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                lc = Line3DCollection(segments, array=x_arr, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
+                ax1.add_collection(lc)
 
-                    # Gradient color change magic
-                    z = np.linspace(0.0, 1.0, x_i.shape[0])
-                    points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
-                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
-                    ax1.add_collection(lc)
+        # Setting axis limits
+        if same_axis:
+            max_ = max(x.max(), y.max(), z.max())
+            min_ = min(x.min(), y.min(), z.min())
+            range_ = max_ - min_
+            ax1.set_xlim([min_-0.1*range_, max_+0.1*range_])
+            ax1.set_ylim([min_-0.1*range_, max_+0.1*range_])
+            ax1.set_zlim([min_-0.1*range_, max_+0.1*range_])
+        else:
+            xrange_ = x.max() - x.min()
+            yrange_ = y.max() - y.min()
+            zrange_ = z.max() - z.min()
+            ax1.set_xlim([x.min()-0.1*xrange_, x.max()+0.1*xrange_])
+            ax1.set_ylim([y.min()-0.1*yrange_, y.max()+0.1*yrange_])
+            ax1.set_zlim([z.min() - 0.1 * zrange_, z.max() + 0.1 * zrange_])
 
-                else:
-                    start_index = sum(lengths[:i])
-                    end_index = sum(lengths[:(i+1)])
-                    # print("start_index = %s" % start_index)
-                    # print("end_index = %s" % end_index)
-                    xseg = x[start_index:end_index]
-                    yseg = y[start_index:end_index]
-                    zseg = y1[start_index:end_index]
+    # Adding new_data, if it exists
+    if new_data is not None:
+        tck_new, u_new = interpolate.splprep([new_data[0], new_data[1], new_data[2]], k=1, s=0.0)
+        x_i_new, y_i_new, z_i_new = interpolate.splev(np.linspace(0, 1, 1000), tck_new)
 
-                    # ax1
-                    # fit spline
-                    tck, u = interpolate.splprep([xseg, yseg, zseg], k=1, s=0.0)
-                    x_i, y_i, z_i = interpolate.splev(np.linspace(0, 1, 1000), tck)
+        # Gradient color change magic
+        z_new = np.linspace(0.0, 1.0, x_i_new.shape[0])
+        points_new = np.array([x_i_new, y_i_new, z_i_new]).T.reshape(-1, 1, 3)
+        segments_new = np.concatenate([points_new[:-1], points_new[1:]], axis=1)
+        lc_new = Line3DCollection(segments_new, array=z_new, cmap='viridis', norm=plt.Normalize(0.0, 1.0),
+                            linestyle="solid", linewidth=2.5)
+        lca_new = Line3DCollection(segments_new, color='black', linestyle="solid", linewidth=5.0)
+        ax1.add_collection(lca_new)
+        ax1.add_collection(lc_new)
 
-                    # Gradient color change magic
-                    z = np.linspace(0.0, 1.0, x_i.shape[0])
-                    points = np.array([x_i, y_i, z_i]).T.reshape(-1, 1, 3)
-                    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                    lc = Line3DCollection(segments, array=z, cmap='viridis', norm=plt.Normalize(0.0, 1.0), alpha=0.8)
-                    ax1.add_collection(lc)
+        x_i_new = np.concatenate((x_i, x_i_new))
+        y_i_new = np.concatenate((y_i, y_i_new))
+        z_i_new = np.concatenate((z_i, z_i_new))
 
-            # Setting axis limits
-            if same_axis:
-                max_ = max(x.max(), y.max(), y1.max())
-                min_ = min(x.min(), y.min(), y1.min())
-                range_ = max_ - min_
-                ax1.set_xlim([min_-0.1*range_, max_+0.1*range_])
-                ax1.set_ylim([min_-0.1*range_, max_+0.1*range_])
-                ax1.set_zlim([min_-0.1*range_, max_+0.1*range_])
-            else:
-                xrange_ = x.max() - x.min()
-                yrange_ = y.max() - y.min()
-                zrange_ = y1.max() - y1.min()
-                ax1.set_xlim([x.min()-0.1*xrange_, x.max()+0.1*xrange_])
-                ax1.set_ylim([y.min()-0.1*yrange_, y.max()+0.1*yrange_])
-                ax1.set_zlim([y1.min()-0.1*zrange_, y1.max()+0.1*zrange_])
+        xrange_ = x_i_new.max() - x_i_new.min()
+        yrange_ = y_i_new.max() - y_i_new.min()
+        zrange_ = z_i_new.max() - z_i_new.min()
+        ax1.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
+        ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
+        ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
-        # Adding new_data, if it exists
-        if new_data is not None:
-            tck_new, u_new = interpolate.splprep([new_data[0], new_data[1], new_data[2]], k=1, s=0.0)
-            x_i_new, y_i_new, z_i_new = interpolate.splev(np.linspace(0, 1, 1000), tck_new)
+        # ax1.set_xlim(-40, 100)
+        # ax1.set_ylim(-20, 20)
+        # ax1.set_zlim(-20, 30)
 
-            # Gradient color change magic
-            z_new = np.linspace(0.0, 1.0, x_i_new.shape[0])
-            points_new = np.array([x_i_new, y_i_new, z_i_new]).T.reshape(-1, 1, 3)
-            segments_new = np.concatenate([points_new[:-1], points_new[1:]], axis=1)
-            lc_new = Line3DCollection(segments_new, array=z_new, cmap='viridis', norm=plt.Normalize(0.0, 1.0),
-                                linestyle="solid", linewidth=2.5)
-            lca_new = Line3DCollection(segments_new, color='black', linestyle="solid", linewidth=5.0)
-            ax1.add_collection(lca_new)
-            ax1.add_collection(lc_new)
-
-            x_i_new = np.concatenate((x_i, x_i_new))
-            y_i_new = np.concatenate((y_i, y_i_new))
-            z_i_new = np.concatenate((z_i, z_i_new))
-
-            xrange_ = x_i_new.max() - x_i_new.min()
-            yrange_ = y_i_new.max() - y_i_new.min()
-            zrange_ = z_i_new.max() - z_i_new.min()
-            ax1.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
-            ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
-
-            # ax1.set_xlim(-40, 100)
-            # ax1.set_ylim(-20, 20)
-            # ax1.set_zlim(-20, 30)
-
-            if points_to_circle_new_data is not None:
-                for i in points_to_circle_new_data:
-                    ax1.scatter(new_data[0][i], new_data[1][i], new_data[2][i], edgecolors='k', facecolors='none', s=200,
-                                zorder=5, linewidth=1.5)
+        if points_to_circle_new_data is not None:
+            for i in points_to_circle_new_data:
+                ax1.scatter(new_data[0][i], new_data[1][i], new_data[2][i], edgecolors='k', facecolors='none', s=200,
+                            zorder=5, linewidth=1.5)
 
 
     fig.tight_layout(pad=5)
@@ -339,8 +440,8 @@ def colored_line_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=No
 
     else:
         # plt.savefig(output_directory + "/" + imgname + ".png", dpi=600, bbox_inches='tight')
-        plt.savefig(output_directory + "/" + imgname + ".pdf")
-        plt.clf()
+        plt.savefig(os.path.join(output_directory, imgname + ".pdf"))
+
 
 def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
               output_directory=None, points_to_circle=None, mark_first_last=False):
@@ -367,8 +468,8 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
         ax0.set_ylabel('PC2', fontsize=16)
         ax0.tick_params(axis='both', labelsize=12)
         ax0.ticklabel_format(style='sci', scilimits=(-3, 3))
-        # ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        # ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax0.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax0.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
         # ax1 = plt.subplot(gs[1])
 
@@ -442,8 +543,8 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
                     time = list(range(len(xseg)))
                     ax0.scatter(xseg, yseg, s=50, c=time, cmap='viridis', zorder=10)
                     if mark_first_last:
-                        ax0.scatter(xseg.iloc[[0]], yseg.iloc[[0]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=100)
-                        ax0.scatter(xseg.iloc[[-1]], yseg.iloc[[-1]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=100)
+                        ax0.scatter(xseg.iloc[[0]], yseg.iloc[[0]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=10)
+                        ax0.scatter(xseg.iloc[[-1]], yseg.iloc[[-1]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=10)
                         ax0.annotate("%s" % (i+1), (xseg.iloc[[-1]], yseg.iloc[[-1]]),
                                      ha='center', va='center', zorder=100)
                 else:
@@ -469,10 +570,10 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
                     time = list(range(len(xseg)))
                     ax0.scatter(xseg, yseg, s=50, c=time, cmap='viridis', zorder=10)
                     if mark_first_last:
-                        ax0.scatter(xseg.iloc[[0]], yseg.iloc[[0]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=100)
-                        ax0.scatter(xseg.iloc[[-1]], yseg.iloc[[-1]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=100)
+                        ax0.scatter(xseg.iloc[[0]], yseg.iloc[[0]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=10)
+                        ax0.scatter(xseg.iloc[[-1]], yseg.iloc[[-1]], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=10)
                         ax0.annotate("%s" % (i+1), (xseg.iloc[[-1]], yseg.iloc[[-1]]),
-                                     ha='center', va='center', zorder=100)
+                                     ha='center', va='center', zorder=10)
 
             # Setting axis limits
             if same_axis:
@@ -503,7 +604,7 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             ax0.add_collection(lca_new)
             ax0.add_collection(lc_new)
             time = list(range(len(new_data[0])))
-            ax0.scatter(new_data[0], new_data[1], s=5, c=time, cmap='viridis', zorder=4)
+            ax0.scatter(new_data[0], new_data[1], s=5, c=time, cmap='viridis', zorder=11)
 
             x_i_new = np.concatenate((x_i, x_i_new))
             y_i_new = np.concatenate((y_i, y_i_new))
@@ -512,8 +613,6 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             yrange_ = y_i_new.max() - y_i_new.min()
             ax0.set_xlim([x_i_new.min() - 0.1 * xrange_, x_i_new.max() + 0.1 * xrange_])
             ax0.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
-            # ax0.set_xlim(-40, 100)
-            # ax0.set_ylim(-20, 20)
 
     if y1 is not None:
         # Do 3D plot
@@ -530,10 +629,9 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
         # ax1.set_title('Top Three Principal Components', fontsize=18, fontstyle='italic')
         ax1.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax1.dist = 9
-        # ax1.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        # ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-        # ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-
+        ax1.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax1.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax1.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
         if lengths is None or sum(lengths) == 0:
 
@@ -677,10 +775,6 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
             ax1.set_ylim([y_i_new.min() - 0.1 * yrange_, y_i_new.max() + 0.1 * yrange_])
             ax1.set_zlim([z_i_new.min() - 0.1 * zrange_, z_i_new.max() + 0.1 * zrange_])
 
-            # ax1.set_xlim(-40, 100)
-            # ax1.set_ylim(-20, 20)
-            # ax1.set_zlim(-20, 30)
-
     if points_to_circle is not None:
         for i in points_to_circle:
             ax0.scatter(x[i], y[i], edgecolors='k', linewidth=1.5, facecolors='none', s=200, zorder=10)
@@ -691,12 +785,14 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
 
     if imgname is None:
         plt.show()
+        plt.close()
 
     else:
         # plt.savefig(output_directory + "/" + imgname + ".png", dpi=1200, bbox_inches='tight')
         # plt.savefig(output_directory + "/" + imgname + ".eps")
-        plt.savefig(output_directory + "/" + imgname + ".pdf")
-        plt.clf()
+        plt.show()
+        plt.savefig(os.path.join(output_directory, imgname + ".pdf"))
+        plt.close()
 
 
 def colored_scatter_plot(x, y, z, directory=None, points_to_circle=None, imgname=None):
