@@ -311,8 +311,10 @@ def filter_important_distances(upper_tri_d2_matrices, num_dists=5000):
     selected_dist_atom_indexes = {}
     for index in top_vars_indexes:
         important_distances_matrix[:, i] = upper_tri_d2_matrices[:, index]
-        selected_dist_atom_indexes[i] = atom_indexes[index]
+        selected_dist_atom_indexes[i] = atom_indexes[index], index
         i += 1
+
+    print(selected_dist_atom_indexes)
 
     return important_distances_matrix, selected_dist_atom_indexes
 
@@ -501,7 +503,8 @@ def chirality_changes(coords_reconstr, stereo_atoms, signs_orig):
 
     for i in range(len(signs_orig)):
         if signs_orig[i] == 0:
-            # If molecule begins planar but reconstruction of PCs are not, keep chirality consistent thru PC
+            # If molecule begins planar but reconstruction of PCs are not, keep chirality consistent along reconstructed
+            # trajectory
             if i > 0 and signs_reconstr[i] != signs_reconstr[0]:
                 coords[i] = -coords[i]
         elif signs_reconstr[i] != signs_orig[i]:
@@ -535,69 +538,54 @@ def make_pc_xyz_files(output_directory, title, atoms, coordinates):
                 b.append(a[j])
 
             f.write('%d' % len(atoms) + '\n')
-            f.write('%s point %i' % (name, i + 1) + '\n')
+            f.write('%s point %i' % (title, i + 1) + '\n')
             f.write('%s' % str(np.asarray(b)).replace("[", "").replace("]", "").replace("'", "") + '\n')
 
         f.close()
 
 
-def goodness_of_fit(values, ndim):
-    """ Calculate "goodness of fit" by determining how much of the variance (sum of w's) is described by the singular
-    values used in the reduced dimensional representation.
-    """
-    gof = np.zeros((ndim + 1, 1))
-    x = 0
-    for k in range(ndim):
-        x = x + values[k] / np.sum(values)
-        gof[k] = x
-
-        print("Goodness of fit (%s-dim)= %f" % (k + 1, gof[k]))
-
-    return gof
-
-
-def plot_gof(values, name, directory):
+def plot_prop_of_var(values, name, directory):
 
     fig = plt.figure(figsize=(8, 4))
 
     ax = fig.add_subplot(1, 2, 1)
     ax1 = fig.add_subplot(1, 2, 2)
 
-    normed_w = values / np.sum(values)
+    normalized_values = values / np.sum(values)
     x = range(len(values))
 
-    ax.scatter(x, normed_w, c='k')
+    ax.scatter(x, normalized_values, c='k')
 
     ax.set_xlabel("Principal Component", fontsize=16)
     ax.set_ylabel("Proportion of Variance", fontsize=16)
     ax.set_ylim(-0.1, 1.1)
 
-    cumulative = np.cumsum(normed_w)
+    cumulative = np.cumsum(normalized_values)
 
     ax1.scatter(x, cumulative)
     ax1.set_xlabel("Principal Component", fontsize=16)
     ax1.set_ylabel("Cumulative Prop. of Var.", fontsize=16)
     ax1.set_ylim(-0.1, 1.1)
 
-    maintitle = "Proportion of Variance Described by Principal Components"
-
     fig.tight_layout()
-    # fig.suptitle("%s" % maintitle, fontsize=16)
-    # fig.subplots_adjust(top=0.88)
-    fig.savefig(directory + "/" + '%s_proportion_of_variance.png' % name, dpi=600)
-    pd.DataFrame(normed_w).to_csv(directory + "/" + name + '_singular_vals.txt', sep='\t', index=None)
+    plt.show()
+    fig.savefig(os.path.join(directory, '%s_proportion_of_variance.png' % name), dpi=600)
 
 
-def stress_calc(d, dred, ndim):
-    """ Calculate "stress" by determining how far the reconstructed points are from the original points.
-    """
-    stress = np.sum(np.square(dred - d)) / np.sum(np.square(d))
-    print("Stress (%s-dim) = %f" % (ndim, stress))
+def print_prop_of_var_to_txt(values, system_name, directory):
 
-    return stress
+    normalized_values = values / np.sum(values)
+    df = pd.DataFrame({'Principal Component': pd.Series([i+1 for i in range(len(values))]),
+                       'Singular Value': values,
+                       'Prop. of Variance': normalized_values,
+                       'Cumul. Prop. of Var.': np.cumsum(normalized_values)})
+
+    pd.set_option('display.expand_frame_repr', False)
+    print(df.head())
+    df.to_csv(os.path.join(directory, system_name + '_prop_of_var.txt'), sep='\t', index=None)
 
 
-def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_atoms):
+def print_distance_weights_to_files(directory, n_dim, name, pca_components, num_atoms):
 
     for n in range(n_dim):
         d = []
@@ -609,10 +597,10 @@ def print_distance_coeffs_to_files(directory, n_dim, name, pca_components, num_a
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
+        sorted_d.to_csv(os.path.join(directory, name + '_PC%s_components.txt' % (n+1)), sep='\t', index=None)
 
 
-def print_distance_coeffs_to_files_filtered(atom_indexes, n_dim, pca_components, name, directory):
+def print_distance_weights_to_files_select_atom_indexes(atom_indexes, n_dim, pca_components, name, directory):
 
     for n in range(n_dim):
         d = []
@@ -623,10 +611,10 @@ def print_distance_coeffs_to_files_filtered(atom_indexes, n_dim, pca_components,
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components.txt' % (n+1), sep='\t', index=None)
+        sorted_d.to_csv(os.path.join(directory, name + '_PC%s_components.txt' % (n+1)), sep='\t', index=None)
 
 
-def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms, display=False):
+def print_distance_weights_to_files_weighted(directory, n_dim, name, pca_components, pca_values, num_atoms, display=False):
 
     for n in range(n_dim):
         d = []
@@ -638,15 +626,15 @@ def print_distance_coeffs_to_files_weighted(directory, n_dim, name, pca_componen
         d_df = pd.DataFrame(d)
 
         sorted_d = d_df.reindex(d_df['Coefficient of Distance'].abs().sort_values(ascending=False).index)
-        sorted_d.to_csv(directory + "/" + name + '_PC%s_components_weighted.txt' % (n+1), sep='\t', index=None)
+        sorted_d.to_csv(os.path.join(directory, name + '_PC%s_components_weighted.txt' % (n+1)), sep='\t', index=None)
 
         if display:
             print("PC%s" % (n+1))
             print(sorted_d)
 
 
-def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_components, pca_mean, original_traj_coords,
-                       stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", MW=False):
+def transform_new_data_cartesians(new_input, output_directory, n_dim, pca_fit, pca_components, pca_mean,
+                                  original_traj_coords, MW=False):
     """
     Takes as input a new trajectory (xyz file) for a given system for which dimensionality reduction has already been
     conducted and transforms this new data into the reduced dimensional space. Generates a plot, with the new data atop
@@ -658,58 +646,36 @@ def transform_new_data(new_input, output_directory, n_dim, pca_fit, pca_componen
     :param pca_components: components from PCA on training data, array
     :param pca_mean: mean of input data to PCA (mean structure as coords or distances), array
     :param original_traj_coords: coordinates of the trajectory that the reduced dimensional space was trained on
-    :param stereo_atoms: indexes of 4 atoms surrounding stereogenic center, list of ints
-    :param input_type: type of input (either "Cartesians" or "Distances"), str
     :param MW: whether coordinates should be mass weighted prior to PCA, bool
     """
 
     print("\nTransforming %s into reduced dimensional representation..." % new_input)
 
-    name, atoms, coordinates = read_file(new_input)
+    new_system_name, atoms, coordinates = read_file(new_input)
 
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
     print("\nResults for %s input will be stored in %s" % (new_input, output_directory))
 
     # Determining names of output directories/files
-    if input_type == "Cartesians":
-        file_name_end = "_Cartesians"
-    elif input_type == "Distances":
-        file_name_end = "_Distances"
+    file_name_end = "_Cartesians"
+
+    # Align structures using Kabsch algorithm so rotations don't affect PCs
+    aligned_original_traj_coords = kabsch(original_traj_coords)
+    coords_for_analysis = align_to_original_traj(coordinates, aligned_original_traj_coords)
+
     if MW is True:
         file_name_end = file_name_end + "_MW"
-    elif MW is False:
+        mass_weighted_coords = mass_weighting(atoms, coords_for_analysis)
+        coords_for_analysis = mass_weighted_coords
+
+    else:
         file_name_end = file_name_end + "_noMW"
+        coords_for_analysis = coords_for_analysis
 
-    if input_type == "Cartesians":
-        # Align structures using Kabsch algorithm so rotations don't affect PCs
-        aligned_original_traj_coords = kabsch(original_traj_coords)
-        coords_for_analysis = align_to_original_traj(coordinates, aligned_original_traj_coords)
-        # coords_for_analysis = kabsch(coordinates)
-        if MW is True:
-            atom_masses, mass_weighted_coords = mass_weighting(atoms, coords_for_analysis)
-            coords_for_analysis = mass_weighted_coords
-
-        else:
-            coords_for_analysis = coords_for_analysis
-
-        coords_for_analysis = np.reshape(coords_for_analysis, (coords_for_analysis.shape[0],
-                                                               coords_for_analysis.shape[1] *
-                                                               coords_for_analysis.shape[2]))
-
-    elif input_type == "Distances":
-
-        if MW is True:
-            coordinates_shifted = set_atom_one_to_origin(coordinates)
-            atom_masses, mass_weighted_coords = mass_weighting(atoms, coordinates_shifted)
-            coords_for_analysis = mass_weighted_coords
-
-        else:
-            coords_for_analysis = coordinates
-
-        negatives, positives, zeroes, all_signs = chirality_test(coordinates, stereo_atoms)
-        d2 = generate_distance_matrices(coords_for_analysis)
-        coords_for_analysis = reshape_ds(d2)
+    coords_for_analysis = np.reshape(coords_for_analysis, (coords_for_analysis.shape[0],
+                                                           coords_for_analysis.shape[1] *
+                                                           coords_for_analysis.shape[2]))
 
     components = pca_fit.transform(coords_for_analysis)
     components_df = pd.DataFrame(components)
