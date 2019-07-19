@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
 import numpy as np
 import calculate_rmsd as rmsd
 import pandas as pd
@@ -9,12 +8,11 @@ import math
 import glob
 import os
 import ntpath
+import plotting_functions
 from periodictable import *
 from matplotlib import pyplot as plt
 from sklearn import *
 from sympy import solve, Symbol
-
-#TODO: Add function for adding linear combinations of eigenvectors to display PCs as normal modes
 
 
 def path_leaf(path):
@@ -83,6 +81,29 @@ def read_file(path):
         print("number of coordinates:   %d" % len(coordinates))
 
     return extensionless_system_name, atoms, coordinates_all
+
+
+def read_file_df(path):
+    """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
+    coordinates_all is arranged as coordinates_all[n][N][c], where n is the IRC point, N is the atom number, and c
+    is the x, y, or z coordinate.
+    """
+    system_name = path_leaf(path)
+    print("File being read is: %s" % system_name)
+
+    extensionless_system_name = os.path.splitext(system_name)[0]
+
+    data = pd.read_csv(path, header=None, delim_whitespace=True, names=['atom', 'X', 'Y', 'Z'])
+    n_atoms = int(data.loc[0][0])
+    n_lines_per_frame = int(n_atoms + 2)
+
+    data_array = np.array(data)
+
+    data_reshape = np.reshape(data_array, (int(data_array.shape[0]/n_lines_per_frame), n_lines_per_frame, data_array.shape[1]))
+    cartesians = data_reshape[:, 2::, 1::].astype(np.float)
+    atom_list = data_reshape[0, 2::, 0]
+
+    return extensionless_system_name, atom_list, cartesians
 
 
 def set_atom_one_to_origin(coordinates):
