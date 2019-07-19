@@ -484,17 +484,10 @@ def chirality_test(coords, stereo_atoms):
     poss = np.where(np.array(signs) > 0)
     zeros = np.where(np.array(signs) == 0)
 
-    # Print statements for debugging purposes
-    # print("\nDetermining chirality of structure at each point of file...")
-    # print("Number of structures with negative determinant (enantiomer 1): %s" % np.size(negs))
-    # print("Number of structures with positive determinant (enantiomer 2): %s" % np.size(poss))
-    # print("Number of structures with zero-valued determinant (all stereo_atoms in same plane): %s" % np.size(zeros))
-    # print("Total structures: %s" % len(signs))
-
     return negs, poss, zeros, signs
 
 
-def chirality_changes_new(coords_reconstr, stereo_atoms, signs_orig):
+def chirality_changes(coords_reconstr, stereo_atoms, signs_orig):
     """ Determines chirality of structure along original trajectory and reconstructed reduced dimensional trajectory
      and switches inconsistencies along reduced dimensional IRC/trajectory.
     :param coords_reconstr: coordinates of trajectory in the reduced dimensional space
