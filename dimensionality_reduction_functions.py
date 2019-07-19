@@ -326,7 +326,65 @@ def calc_num_atoms(vec_length):
     return num_atoms
 
 
-def generate_PC_matrices(n_dim, matrix_reduced, components, mean):
+def set_unimportant_distance_weights_to_zero(important_distances_matrix, selected_dist_atom_indexes, num_atoms):
+
+    num_points = important_distances_matrix.shape[0]
+    num_dists = int((num_atoms*(num_atoms-1))/2)
+
+    all_distances_matrix = np.zeros((num_points, num_dists))
+
+    for i in range(len(selected_dist_atom_indexes)):
+        distance_location = selected_dist_atom_indexes[i][1]
+        all_distances_matrix[:, distance_location] = important_distances_matrix[:, i]
+
+    return all_distances_matrix
+
+
+def generate_PC_matrices_selected_distances(n_dim, matrix_reduced, components, mean, selected_dist_atom_indexes, num_atoms):
+    #TODO: Figure out what the mean structure should be (i.e., if features have weight of 0 in PC, what's the default?)
+    num_points = matrix_reduced.shape[0]
+    num_dists = int((num_atoms*(num_atoms-1))/2)
+
+    PCs_separate = []
+    for i in range(0, n_dim):
+        PCi = np.zeros((num_points, num_dists))
+        PCi_selected = np.dot(matrix_reduced[:, i, None], components[None, i, :]) + mean
+
+        for j in range(len(selected_dist_atom_indexes)):
+            distance_location = selected_dist_atom_indexes[j][1]
+            PCi[:, distance_location] = PCi_selected[:, j]
+
+        PCs_separate.append(PCi)
+
+    PCs_combined = np.zeros((num_points, num_dists))
+    PCs_combined_selected = np.dot(matrix_reduced, components) + mean
+
+    for j in range(len(selected_dist_atom_indexes)):
+        distance_location = selected_dist_atom_indexes[j][1]
+        PCs_combined[:, distance_location] = PCs_combined_selected[:, j]
+
+    PCs_separate = np.array(PCs_separate)
+    PCs_combined = np.array(PCs_combined)
+
+    return PCs_separate, PCs_combined
+
+
+def inverse_transform_of_PCs(n_dim, matrix_reduced, components, mean):
+
+    PCs_separate = []
+    for i in range(0, n_dim):
+        PCi = np.dot(matrix_reduced[:, i, None], components[None, i, :]) + mean
+        PCs_separate.append(PCi)
+
+    PCs_combined = np.dot(matrix_reduced, components) + mean
+
+    PCs_separate = np.array(PCs_separate)
+    PCs_combined = np.array(PCs_combined)
+
+    return PCs_separate, PCs_combined
+
+#TODO: Add function for adding linear combinations of eigenvectors to display PCs as normal modes
+def generate_eigenvector_matrices_as_normal_modes(n_dim, matrix_reduced, components, mean):
 
     PCs_separate = []
     for i in range(0, n_dim):
