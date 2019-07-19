@@ -421,17 +421,17 @@ def top_values_indexes(a, n):
     return np.argsort(a)[::-1][:n]
 
 
-def kabsch(coords):
+def kabsch(coordinates):
     """Kabsch algorithm to get orientation of axes that minimizes RMSD. All structures will be aligned to the first
     structure in the trajectory.
-    :param coords: coordinates along trajectory to be aligned, list or array
+    :param coordinates: coordinates along trajectory to be aligned, list or array
     """
-    coords = np.array(coords)
-    coords[0] -= rmsd.centroid(coords[0])
+    coordinates = np.array(coordinates)
+    coordinates[0] -= rmsd.centroid(coordinates[0])
     coords_kabsch = []
-    for i in range(len(coords)):
-        coords[i] -= rmsd.centroid(coords[i])
-        coords_kabschi = rmsd.kabsch_rotate(coords[i], coords[0])
+    for i in range(len(coordinates)):
+        coordinates[i] -= rmsd.centroid(coordinates[i])
+        coords_kabschi = rmsd.kabsch_rotate(coordinates[i], coordinates[0])
         coords_kabsch.append(coords_kabschi)
 
     return np.array(coords_kabsch)
