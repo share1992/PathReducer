@@ -20,73 +20,14 @@ def path_leaf(path):
     return tail or ntpath.basename(head)
 
 
-def read_file(path):
-    """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
-    coordinates_all is arranged as coordinates_all[n][N][c], where n is the IRC point, N is the atom number, and c
-    is the x, y, or z coordinate.
-    """
-    system_name = path_leaf(path)
-    print("File being read is: %s" % system_name)
-
-    extensionless_system_name = os.path.splitext(system_name)[0]
-
-    xyz = open(path)
-    n_atoms = int(xyz.readline())
-    energies = []
-    atoms = []
-    coordinates = []
-    velocities = []
-
-    # Each point along the IRC/traj will be stored as an entry in a 3D array called coordinates_all
-    coordinates_all = []
-    velocities_all = []
-    for line in xyz:
-        splitline = line.split()
-        if len(splitline) == 4:
-            atom, x, y, z = line.split()
-            atoms.append(atom)
-            coordinates.append([float(x), float(y), float(z)])
-        elif len(splitline) == 7:
-            atom, x, y, z, vx, vy, vz = line.split()
-            atoms.append(atom)
-            coordinates.append([float(x), float(y), float(z)])
-            velocities.append([float(vx), float(vy), float(vz)])
-        elif len(splitline) == 1:
-            if type(splitline[0]) == str:
-                pass
-            elif float(splitline[0]) == float(n_atoms):
-                pass
-            else:
-                energy = float(splitline[0])
-                energies.append(energy)
-            if len(coordinates) != 0:
-                coordinates_all.append(coordinates)
-            elif len(coordinates) == 0:
-                pass
-            atoms = []
-            coordinates = []
-    else:
-        coordinates_all.append(coordinates)
-        velocities_all.append(velocities)
-
-    xyz.close()
-
-    coordinates_all = np.asarray(coordinates_all)
-    velocities_all = np.asarray(velocities_all)
-
-    # Print ERROR if length of coordinate section doesn't match number of atoms specified at beginning of xyz file
-    if len(atoms) != n_atoms:
-        print("ERROR: file contains %d atoms instead of the stated number %d" % (n_atoms, len(atoms)))
-        print("number of atoms in file: %d" % len(atoms))
-        print("number of coordinates:   %d" % len(coordinates))
-
-    return extensionless_system_name, atoms, coordinates_all
-
-
 def read_file_df(path):
-    """ Reads in each file, and for each file, separates each IRC point into its own matrix of cartesian coordinates.
-    coordinates_all is arranged as coordinates_all[n][N][c], where n is the IRC point, N is the atom number, and c
-    is the x, y, or z coordinate.
+    """ Reads in an xyz file from path as a DataFrame. This DataFrame is then turned into a 3D array such that the
+    dimensions are (number of points) X (number of atoms) X 3 (Cartesian coordinates). The system name (based on the
+    filename), list of atoms in the system, and Cartesian coordinates are output.
+    :param path: path to xyz file to be read
+    :return extensionless_system_name: str
+            atom_list: numpy array
+            cartesians: numpy array
     """
     system_name = path_leaf(path)
     print("File being read is: %s" % system_name)
