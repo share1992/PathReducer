@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from matplotlib.collections import LineCollection
 from matplotlib.gridspec import GridSpec
 import matplotlib.pyplot as plt
@@ -443,12 +444,11 @@ def colored_line_plot_projected_data(x, y, new_data_x, new_data_y=None, z=None, 
         plt.savefig(os.path.join(output_directory, imgname + ".pdf"))
 
 
-def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=True, lengths=None, new_data=None,
+def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None, imgname=None, same_axis=False, lengths=None, new_data=None,
               output_directory=None, points_to_circle=None, mark_first_last=False):
     """
     Create a 2D plot or 1D if y == None
     """
-
 
     if y is None and y1 is None:
         plt.figure(figsize=(8, 4))
@@ -785,7 +785,6 @@ def colored_line_and_scatter_plot(x, y=None, y1=None, x2=None, y2=None, y12=None
 
     if imgname is None:
         plt.show()
-        plt.close()
 
     else:
         # plt.savefig(output_directory + "/" + imgname + ".png", dpi=1200, bbox_inches='tight')
@@ -856,30 +855,16 @@ def colored_scatter_plot(x, y, z, directory=None, points_to_circle=None, imgname
         plt.show()
 
 
-def plot_irc(path, imgname=None, output_directory=None, points_to_circle=None):
-    file = sorted(glob.glob(path + "/*ener1.txt"))
-    irc = open(file[0])
-    energies = []
-    coordinate = []
-    for line in irc:
-        splitline = line.split()
-        energiesi = splitline[1]
-        coordinatei = splitline[0]
+def plot_irc(path, imgname=None, output_directory=None, points_to_circle=None, gif_points_to_circle=None):
 
-        energies.append(energiesi)
-        coordinate.append(coordinatei)
+    data = pd.read_csv(path, header=None, delim_whitespace=True)
 
-    energies = np.array(energies)
-    energies1 = energies.astype(np.float)
-    coordinate = np.array(coordinate)
-    coordinate1 = coordinate.astype(np.float)
-
-    relenergies = [(i - energies1[0]) * 627.51 for i in energies1]
-
-    x = -coordinate1
-    y = relenergies
+    data[2] = (data[1] - data[1][0]) * 627.51
 
     fig = plt.figure(figsize=(10, 5))
+
+    x = data[0]
+    y = data[2]
 
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(x, y, s=100, c=x, cmap='viridis', edgecolors='k')
@@ -895,6 +880,235 @@ def plot_irc(path, imgname=None, output_directory=None, points_to_circle=None):
             ax.scatter(x[i], y[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=2)
 
     if output_directory and imgname:
-        plt.savefig(output_directory + "/" + imgname, format='eps')
+        plt.savefig(os.path.join(output_directory, imgname), format='eps')
 
 
+def plot_irc_for_gif(path, gif_points_to_circle, imgname=None, output_directory=None):
+    """
+    Will generate pictures of a plot with individual points circled. To stitch them into a gif, use ImageMagick:
+    convert -delay 8 $(for i in $(seq 1 `ls *.pdf | wc -l`); do echo imgname_${i}.pdf; done) n-loop 0 gif-name.gif
+    :param path: path to IRC energies (txt or csv file)
+    :param gif_points_to_circle: list of points (ints) to circle
+    :param imgname: name of group of images (e.g., the system name)
+    :param output_directory: where to put output images
+    :return: None
+    """
+
+    data = pd.read_csv(path, header=None, delim_whitespace=True)
+
+    data[2] = (data[1] - data[1][0]) * 627.51
+
+    x = data[0]
+    y = data[2]
+
+    for i in gif_points_to_circle:
+
+        fig = plt.figure(figsize=(7, 5))
+
+        ax = fig.add_subplot(1, 1, 1)
+        lc = gradient_color_change_magic(x, y)
+        ax.add_collection(lc)
+        ax.scatter(x, y, s=100, c=x, cmap='viridis', edgecolors='k', zorder=2)
+        ax.set_xlabel("Intrinsic Reaction Coordinate (Bohr$\sqrt{amu}$)", fontsize=16)
+        ax.set_ylabel("Relative Energy (kcal/mol)", fontsize=16)
+
+        ax.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+        ax.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+        plt.tick_params(labelsize=14)
+
+        ax.scatter(x[i], y[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=-1)
+        plt.savefig(os.path.join(output_directory, imgname + "_scatterline_%s.pdf" % i), format='pdf')
+
+        plt.close(fig)
+
+    plt.close('all')
+
+def plot_pcs_for_gif_2D(pca_matrix, gif_points_to_circle, imgname=None, output_directory=None):
+    """
+    Will generate pictures of a plot with individual points circled (number of pictures = number of points to circle).
+    To stitch them into a gif, use ImageMagick:
+    convert -delay 8 {-density 400} $(for i in $(seq 1 `ls *.pdf | wc -l`); do echo imgname_${i}.pdf; done) n-loop 0 gif-name.gif
+    :param pca_matrix: numpy array, matrix of PCs after conducting PCA
+    :param gif_points_to_circle: list of points (ints) to circle
+    :param imgname: name of group of images (e.g., the system name)
+    :param output_directory: where to put output images
+    :return: None
+    """
+
+    data = pd.DataFrame(pca_matrix)
+
+    x = data[0]
+    y = data[1]
+
+    for i in gif_points_to_circle:
+        fig = plt.figure(figsize=(6, 5))
+
+        ax = fig.add_subplot(1, 1, 1)
+        ax.grid(True)
+
+        lc = gradient_color_change_magic(x, y)
+        ax.add_collection(lc)
+        ax.scatter(x, y, s=100, c=list(range(len(x))), cmap='viridis', edgecolors='k', zorder=2)
+        ax.set_xlabel("PC1", fontsize=16)
+        ax.set_ylabel("PC2", fontsize=16)
+
+        ax.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+        ax.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+        ax.tick_params(labelsize=14)
+        ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+        ax.scatter(x[i], y[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=-1)
+        plt.savefig(os.path.join(output_directory, imgname + "_2PCs_scatterline_%s.pdf" % i), bbox_inches='tight',
+                    format='pdf')
+
+        plt.close(fig)
+
+    plt.close('all')
+
+
+def plot_pcs_for_gif_3D(pca_matrix, gif_points_to_circle, imgname=None, output_directory=None):
+    """
+    Will generate pictures of a plot with individual points circled (number of pictures = number of points to circle).
+    To stitch them into a gif, use ImageMagick:
+    convert -delay 8 {-density 400} $(for i in $(seq 1 `ls *.pdf | wc -l`); do echo imgname_${i}.pdf; done) n-loop 0 gif-name.gif
+    :param pca_matrix: numpy array, matrix of PCs after conducting PCA
+    :param gif_points_to_circle: list of points (ints) to circle
+    :param imgname: name of group of images (e.g., the system name)
+    :param output_directory: where to put output images
+    :return: None
+    """
+
+    data = pd.DataFrame(pca_matrix)
+
+    x = data[0]
+    y = data[1]
+    z = data[2]
+
+    for i in gif_points_to_circle:
+        fig = plt.figure(figsize=(6, 5))
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax.view_init(elev=25., azim=55)
+
+        lc = gradient_color_change_magic(x, y, z)
+        ax.add_collection(lc)
+        ax.scatter(x, y, z, s=100, c=list(range(len(x))), cmap='viridis', edgecolors='k', zorder=2)
+        ax.set_xlabel("PC1", fontsize=16, labelpad=10)
+        ax.set_ylabel("PC2", fontsize=16, labelpad=10)
+        ax.set_zlabel("PC3", fontsize=16, labelpad=15)
+
+        ax.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+        ax.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+        ax.set_zlim(min(z) - 0.1 * max(z), 1.1 * max(z))
+        ax.tick_params(labelsize=14, axis='z', pad=10)
+        ax.tick_params(labelsize=14, axis='x')
+        ax.tick_params(labelsize=14, axis='y')
+        ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+        ax.scatter(x[i], y[i], z[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=-1)
+        # Set viewing "distance" to plot, so axes aren't cut off in final images
+        ax.dist = 9
+        plt.savefig(os.path.join(output_directory, imgname + "_3PCs_scatterline_%s.pdf" % i), format='pdf')
+
+        plt.close(fig)
+
+    plt.close('all')
+
+
+def plot_pcs_for_gif_3D_rotating(pca_matrix, gif_points_to_circle, imgname=None, output_directory=None):
+    """
+    Will generate pictures of a plot with individual points circled (number of pictures = number of points to circle).
+    To stitch them into a gif, use ImageMagick:
+    convert -delay 8 {-density 400} $(for i in $(seq 1 `ls *.pdf | wc -l`); do echo imgname_${i}.pdf; done) n-loop 0 gif-name.gif
+    :param pca_matrix: numpy array, matrix of PCs after conducting PCA
+    :param gif_points_to_circle: list of points (ints) to circle
+    :param imgname: name of group of images (e.g., the system name)
+    :param output_directory: where to put output images
+    :return: None
+    """
+
+    data = pd.DataFrame(pca_matrix)
+
+    x = data[0]
+    y = data[1]
+    z = data[2]
+
+    rot = 0
+    for i in gif_points_to_circle:
+        fig = plt.figure(figsize=(6, 5))
+        rot += 360/len(x)
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+        ax.view_init(elev=25., azim=rot)
+
+        lc = gradient_color_change_magic(x, y, z)
+        ax.add_collection(lc)
+        ax.scatter(x, y, z, s=100, c=list(range(len(x))), cmap='viridis', edgecolors='k', zorder=2)
+        ax.set_xlabel("PC1", fontsize=16, labelpad=10)
+        ax.set_ylabel("PC2", fontsize=16, labelpad=10)
+        ax.set_zlabel("PC3", fontsize=16, labelpad=20)
+
+        ax.set_xlim(min(x) - 0.1 * max(x), 1.1 * max(x))
+        ax.set_ylim(min(y) - 0.1 * max(y), 1.1 * max(y))
+        ax.set_zlim(min(z) - 0.1 * max(z), 1.1 * max(z))
+        ax.tick_params(labelsize=14, axis='z', pad=10)
+        ax.tick_params(labelsize=14, axis='x')
+        ax.tick_params(labelsize=14, axis='y')
+        ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        ax.zaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+
+        ax.scatter(x[i], y[i], z[i], s=400, facecolors='none', edgecolors="black", linewidth=2, zorder=-1)
+        # Set viewing "distance" to plot, so axes aren't cut off in final images
+        ax.dist = 11
+        plt.savefig(os.path.join(output_directory, imgname + "_3PCs_scatterline_rotating_%s.pdf" % i), format='pdf')
+
+        plt.close(fig)
+
+    plt.close('all')
+
+
+def plot_prop_of_var(values, system_name=None, output_directory=None):
+    """
+    Plot the proportion of variance using the eigenvalues of the covariance matrix of the input data.
+    :param values: array or list, eigenvalues of the covariance matrix (pca.explained_variance_)
+    :param system_name: str, name of the system to use as file name
+    :param output_directory: str, directory in which to put output plot
+    :return: None
+    """
+    fig = plt.figure(figsize=(8, 4))
+
+    ax = fig.add_subplot(1, 2, 1)
+    ax1 = fig.add_subplot(1, 2, 2)
+
+    normalized_values = values / np.sum(values)
+    x = range(len(values))
+
+    ax.scatter(x, normalized_values, c='k')
+
+    ax.set_xlabel("Principal Component", fontsize=16)
+    ax.set_ylabel("Proportion of Variance", fontsize=16)
+    ax.tick_params(labelsize=14)
+    ax.set_ylim(-0.1, 1.1)
+
+    cumulative = np.cumsum(normalized_values)
+
+    ax1.scatter(x, cumulative)
+    ax1.set_xlabel("Principal Component", fontsize=16)
+    ax1.set_ylabel("Cumulative Prop. of Var.", fontsize=16)
+    ax1.tick_params(labelsize=14)
+    ax1.set_ylim(-0.1, 1.1)
+
+    fig.tight_layout()
+
+    if system_name is None or output_directory is None:
+        plt.show()
+
+    else:
+        fig.savefig(os.path.join(output_directory, '%s_proportion_of_variance.png' % system_name), dpi=600)
