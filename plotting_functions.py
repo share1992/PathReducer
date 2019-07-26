@@ -7,7 +7,6 @@ from scipy import interpolate
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from matplotlib.ticker import FormatStrFormatter
 import os
-import glob
 
 
 def gradient_color_change_magic(x, y, z=None):
