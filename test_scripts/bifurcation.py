@@ -39,6 +39,7 @@ D_pca_df2 = D_pca_df.drop(D_pca_df.index[106:184], axis=0)
 colored_line_and_scatter_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
           output_directory=direc1, imgname=(system_name1 + "_Distances_noMW"))
 
+<<<<<<< Updated upstream
 colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
           new_data=new_data_df1, output_directory=direc1 + "/new_data",
           imgname=(system_name1 + "_Distances_noMW_traj1_D"))
@@ -51,3 +52,17 @@ colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0]
 colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
           new_data=new_data_df4, output_directory=direc1 + "/new_data",
           imgname=(system_name1 + "_Distances_noMW_traj4_C"))
+=======
+colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+                  same_axis=False, new_data=new_data_df1, output_directory=direc1 + "/new_data",
+                  imgname=(system_name1 + "_Distances_noMW_traj1_D"))
+colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+                  same_axis=False, new_data=new_data_df2, output_directory=direc1 + "/new_data",
+                  imgname=(system_name1 + "_Distances_noMW_traj2_A"))
+colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+                  same_axis=False, new_data=new_data_df3, output_directory=direc1 + "/new_data",
+                  imgname=(system_name1 + "_Distances_noMW_traj3_B"))
+colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+                  same_axis=False, new_data=new_data_df4, output_directory=direc1 + "/new_data",
+                  imgname=(system_name1 + "_Distances_noMW_traj4_C"))
+>>>>>>> Stashed changes
