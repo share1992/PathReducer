@@ -14,13 +14,14 @@ To initially define a reduced dimensional space, use the `pathreducer` function.
 ## Installation
 ### Dependencies
 Dependencies can be found in requirements.txt. To install all dependncies, use `pip install` in Terminal:
+
 `pip install -r requirements.txt`
 
 ## Example Usage
 Test scripts for using _PathReducer_'s basic functions are provided in the `test_scripts` folder. Additionally, the Jupyter notebook `PathReducer Walkthrough I.ipynb` guides you through an example system. An interactive function is also available to lead you through the process step-by-step by calling
 
-`from dimensionality_reduction_functions import *
+`from dimensionality_reduction_functions import *`
 
-pathreducer_interactive()`
+`pathreducer_interactive()`
 
 in a Python 3 shell. 
