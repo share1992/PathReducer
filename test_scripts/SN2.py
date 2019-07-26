@@ -26,11 +26,11 @@ D_pca_df = pd.DataFrame(D_pca)
 points_to_circle = [0, 15, np.argmin(np.array(D_pca_df[1])), 103]
 
 # Original Data
-colored_line_and_scatter_plot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], same_axis=False, output_directory=output_directory_D,
+colored_line_and_scatter_plot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], output_directory=output_directory_D,
           imgname=(system_name + "_Distances_noMW_scatterline"), points_to_circle=points_to_circle)
 
 # New Data
-colored_line_and_scatter_plot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], same_axis=False, new_data=new_data_D_df,
+colored_line_and_scatter_plot(D_pca_df[0], y=D_pca_df[1], y1=D_pca_df[2], new_data=new_data_D_df,
           output_directory=output_directory_D + "/new_data", imgname=(system_name + "_Distances_noMW_scatterline"),
                               points_to_circle=points_to_circle)
 
