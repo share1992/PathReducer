@@ -1,6 +1,6 @@
 import pandas as pd
 import dimensionality_reduction_functions as dim_red
-from plotting_functions import colored_line_and_scatter_plot, plot_irc
+from plotting_functions import colored_line_and_scatter_plot
 
 # Number of PCA components
 ndim = 3
@@ -18,7 +18,7 @@ aligned_original_coords = dim_red.pathreducer(file, ndim, stereo_atoms=stereo_at
 
 # Plot results
 D_pca_df = pd.DataFrame(D_pca)
-colored_line_and_scatter_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], same_axis=False, output_directory=output_directory_D,
+colored_line_and_scatter_plot(D_pca_df[0], D_pca_df[1], D_pca_df[2], output_directory=output_directory_D,
           imgname=(system_name + "_Distances_noMW_scatterline"), points_to_circle=points_to_circle)
 
 
