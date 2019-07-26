@@ -10,7 +10,6 @@ import os
 import ntpath
 import plotting_functions
 from periodictable import *
-from matplotlib import pyplot as plt
 from sklearn import *
 from sympy import solve, Symbol
 
