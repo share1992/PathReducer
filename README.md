@@ -13,7 +13,7 @@ To initially define a reduced dimensional space, use the `pathreducer` function.
 
 ## Installation
 ### Dependencies
-Dependencies can be found in requirements.txt. To install all dependncies, use `pip install` in Terminal:
+Dependencies can be found in requirements.txt. To install all dependencies, use `pip install` in Terminal:
 
 `pip install -r requirements.txt`
 
