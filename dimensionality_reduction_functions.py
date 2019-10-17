@@ -7,6 +7,7 @@ import pandas as pd
 import math
 import glob
 import os
+import sys
 import ntpath
 import plotting_functions
 from periodictable import *
@@ -19,7 +20,7 @@ def path_leaf(path):
     return tail or ntpath.basename(head)
 
 
-def read_file_df(path):
+def read_xyz_file(path):
     """ Reads in an xyz file from path as a DataFrame. This DataFrame is then turned into a 3D array such that the
     dimensions are (number of points) X (number of atoms) X 3 (Cartesian coordinates). The system name (based on the
     filename), list of atoms in the system, and Cartesian coordinates are output.
@@ -47,22 +48,61 @@ def read_file_df(path):
     return extensionless_system_name, atom_list, cartesians
 
 
+def calculate_velocities(cartesians, timestep=1):
+    """
+    Calculate velocities at each timestep given Cartesian coordinates. Velocities at the first and last point are
+    extrapolated.
+    :param cartesians: Cartesian coordinates along trajectory
+    :param timestep: time step between frames in units of fs, default=1
+    :return: velocities
+    """
+
+    velocities = []
+    for i in range(0, len(cartesians)):
+        if i == 0:
+            velocity = (cartesians[i + 1] - cartesians[i]) / timestep
+        elif i == len(cartesians)-1:
+            velocity = (cartesians[i] - cartesians[i - 1]) / timestep
+        else:
+            velocity = (cartesians[i + 1] - cartesians[i - 1])/2*timestep
+
+        velocities.append(velocity)
+
+    return velocities
+
+
+def calculate_momenta(velocities, atoms):
+    """
+
+    :param cartesians: Cartesian coordinates along trajectory
+    :param timestep: time step between frames in units of fs, default=1
+    :return: velocities
+    """
+    velocities = np.array(velocities)
+    atoms = np.array(atoms)
+
+    atom_masses = np.array([formula(atom).mass for atom in atoms])
+    momenta = velocities * atom_masses[np.newaxis, :, np.newaxis]
+
+    return momenta
+
+
 def set_atom_one_to_origin(coordinates):
     coordinates_shifted = coordinates - coordinates[:, np.newaxis, 0]
 
     return coordinates_shifted
 
 
-def mass_weighting(atoms, coordinates):
+def mass_weighting(atoms, cartesians):
 
-    coordinates = np.array(coordinates)
+    cartesians = np.array(cartesians)
     atoms = np.array(atoms)
 
     atom_masses = [formula(atom).mass for atom in atoms]
     weighting = np.sqrt(atom_masses)
-    mass_weighted_coords = coordinates * weighting[np.newaxis, :, np.newaxis]
+    mass_weighted_cartesians = cartesians * weighting[np.newaxis, :, np.newaxis]
 
-    return mass_weighted_coords
+    return mass_weighted_cartesians
 
 
 def remove_mass_weighting(atoms, coordinates):
@@ -202,6 +242,7 @@ def pca_dr(matrix):
     matrix_pca = pca.transform(matrix)
 
     return matrix_pca, matrix_pca_fit, pca.components_, pca.mean_, pca.explained_variance_
+
 
 #TODO: Add function that is able to do LDA on data rather than PCA
 def lca_dr(matrix, data_labels):
@@ -614,6 +655,20 @@ def print_distance_weights_to_files_weighted(directory, n_dim, system_name, pca_
             print(sorted_d)
 
 
+def transform_new_data(new_xyz_file_path, output_directory, n_dim, pca_fit, pca_components, pca_mean,
+                       original_traj_coords, input_type, stereo_atoms=[1, 2, 3, 4]):
+    if input_type=="Cartesians":
+        new_system_name, components_df = transform_new_data_cartesians(new_xyz_file_path, output_directory, n_dim, pca_fit, pca_components, pca_mean,
+                                          original_traj_coords)
+    elif input_type=="Distances":
+        new_system_name, components_df = transform_new_data_distances(new_xyz_file_path, output_directory, n_dim, pca_fit, pca_components, pca_mean,
+                                          stereo_atoms=stereo_atoms)
+    else:
+        print("ERROR: Please specify input_type=\"Cartesians\" or \"Distances\"")
+
+    return new_system_name, components_df
+
+
 def transform_new_data_cartesians(new_xyz_file_path, output_directory, n_dim, pca_fit, pca_components, pca_mean,
                                   original_traj_coords, MW=False):
     """
@@ -632,7 +687,7 @@ def transform_new_data_cartesians(new_xyz_file_path, output_directory, n_dim, pc
 
     print("\nTransforming %s into reduced dimensional representation..." % new_xyz_file_path)
 
-    new_system_name, atoms, coordinates = read_file_df(new_xyz_file_path)
+    new_system_name, atoms, coordinates = read_xyz_file(new_xyz_file_path)
 
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -714,7 +769,7 @@ def transform_new_data_distances(new_xyz_file_path, output_directory, n_dim, pca
 
     print("\nTransforming %s into reduced dimensional representation..." % new_xyz_file_path)
 
-    new_system_name, atoms, coordinates = read_file_df(new_xyz_file_path)
+    new_system_name, atoms, coordinates = read_xyz_file(new_xyz_file_path)
 
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -798,20 +853,10 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
     """
 
     # Make sure even large matrices are printed out in their entirety (for the generation of xyz files)
-    np.set_printoptions(threshold=np.nan)
+    np.set_printoptions(threshold=sys.maxsize)
 
     # Check if input is directory (containing input files) or a single input file itself
     assert os.path.isfile(xyz_file_path) or os.path.isdir(xyz_file_path), "No such file or directory."
-
-    # if coords_for_PCA.shape[1] > 1000:
-    #     num_dists = 75000
-    #     print("Big matrix. Using the top %s distances for PCA..." % num_dists)
-    #     d2_re_matrix = generate_and_reshape_ds_big_structures(coords_for_PCA)
-    #     d2_mean = calc_mean_distance_vector(d2_re_matrix)
-    #     d_re, selected_dist_atom_indexes = filter_important_distances(d2_re_matrix, num_dists=num_dists)
-    #
-    #     # TODO: Make reconstruction possible by setting weights on all "non-important" distances to zero
-    #     reconstruct = False
 
     if os.path.isfile(xyz_file_path) is True:
         if input_type == "Cartesians":
@@ -849,7 +894,7 @@ def pathreducer_cartesians_one_file(xyz_file_path, n_dim, mw=False, reconstruct=
     """
 
     # Make sure even large matrices are printed out in their entirety (for the generation of xyz files)
-    np.set_printoptions(threshold=np.nan)
+    np.set_printoptions(threshold=sys.maxsize)
 
     # Check if input is directory (containing input files) or a single input file itself
     assert os.path.isfile(xyz_file_path) or os.path.isdir(xyz_file_path), "No such file or directory."
@@ -863,7 +908,7 @@ def pathreducer_cartesians_one_file(xyz_file_path, n_dim, mw=False, reconstruct=
         file_name_end = file_name_end + "_noMW"
 
     print("\nInput is one file.")
-    system_name, atoms, coordinates = read_file_df(xyz_file_path)
+    system_name, atoms, coordinates = read_xyz_file(xyz_file_path)
 
     # Creating a directory for output (if directory doesn't already exist)
     output_directory = system_name + file_name_end + "_output"
@@ -944,7 +989,7 @@ def pathreducer_cartesians_directory_of_files(xyz_file_directory_path, n_dim, mw
     """
 
     # Make sure even large matrices are printed out in their entirety (for the generation of xyz files)
-    np.set_printoptions(threshold=np.nan)
+    np.set_printoptions(threshold=sys.maxsize)
 
     # Check if input is directory (containing input files) or a single input file itself
     assert os.path.isfile(xyz_file_directory_path) or os.path.isdir(xyz_file_directory_path), "No such file or " \
@@ -972,7 +1017,7 @@ def pathreducer_cartesians_directory_of_files(xyz_file_directory_path, n_dim, mw
     i = 0
     for xyz_file in xyz_files:
         i = i + 1
-        name, atoms_one_file, coordinates = read_file_df(xyz_file)
+        name, atoms_one_file, coordinates = read_xyz_file(xyz_file)
         names.append(name)
         atoms.append(atoms_one_file)
         file_lengths.append(coordinates.shape[0])
@@ -1074,7 +1119,7 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
     """
 
     # Make sure even large matrices are printed out in their entirety (for the generation of xyz files)
-    np.set_printoptions(threshold=np.nan)
+    np.set_printoptions(threshold=sys.maxsize)
 
     # Check if input is directory (containing input files) or a single input file itself
     assert os.path.isfile(xyz_file_path) or os.path.isdir(xyz_file_path), "No such file or directory."
@@ -1087,7 +1132,7 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
         file_name_end = file_name_end + "_noMW"
 
     print("\nInput is one file.")
-    name, atoms, coordinates = read_file_df(xyz_file_path)
+    name, atoms, coordinates = read_xyz_file(xyz_file_path)
 
     # Creating a directory for output (if directory doesn't already exist)
     output_directory = name + file_name_end + "_output"
@@ -1108,8 +1153,20 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
     else:
         coords_for_pca = aligned_coordinates
 
-    d2_full_matrices = generate_distance_matrices(coords_for_pca)
-    d2_vector_matrix = reshape_ds(d2_full_matrices)
+    if coords_for_pca.shape[1] > 1000:
+        num_dists = 75000
+        print("Big matrix. Using the top %s distances for PCA..." % num_dists)
+        d2_vector_matrix_all = generate_and_reshape_ds_big_structures(coords_for_pca)
+
+        d2_mean = calc_mean_distance_vector(d2_vector_matrix_all)
+        d2_vector_matrix, selected_dist_atom_indexes = filter_important_distances(d2_vector_matrix_all, num_dists=num_dists)
+        # TODO: Make reconstruction possible by setting weights on all "non-important" distances to zero
+        reconstruct = False
+
+    else:
+        d2_full_matrices = generate_distance_matrices(coords_for_pca)
+        d2_vector_matrix = reshape_ds(d2_full_matrices)
+
     print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
     # PCA on distance matrix
@@ -1210,7 +1267,7 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
     print("\nInput is a directory of files.")
 
     # Make sure even large matrices are printed out in their entirety (for the generation of xyz files)
-    np.set_printoptions(threshold=np.nan)
+    np.set_printoptions(threshold=sys.maxsize)
 
     # Determining names of output directories/files
     file_name_end = "_Distances"
@@ -1231,7 +1288,7 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
     i = 0
     for xyz_file in xyz_files:
         i = i + 1
-        name, atoms_one_file, coordinates = read_file_df(xyz_file)
+        name, atoms_one_file, coordinates = read_xyz_file(xyz_file)
         names.append(name)
         atoms.append(atoms_one_file)
         file_lengths.append(coordinates.shape[0])
@@ -1259,8 +1316,19 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
     else:
         coords_for_pca = coords_for_analysis
 
-    d2_full_matrices = generate_distance_matrices(coords_for_pca)
-    d2_vector_matrix = reshape_ds(d2_full_matrices)
+    if coords_for_pca.shape[1] > 1000:
+        num_dists = 75000
+        print("Big matrix. Using the top %s distances for PCA..." % num_dists)
+        d2_vector_matrix_all = generate_and_reshape_ds_big_structures(coords_for_pca)
+
+        d2_mean = calc_mean_distance_vector(d2_vector_matrix_all)
+        d2_vector_matrix, selected_dist_atom_indexes = filter_important_distances(d2_vector_matrix_all, num_dists=num_dists)
+        # TODO: Make reconstruction possible by setting weights on all "non-important" distances to zero
+        reconstruct = False
+
+    else:
+        d2_full_matrices = generate_distance_matrices(coords_for_pca)
+        d2_vector_matrix = reshape_ds(d2_full_matrices)
 
     print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
