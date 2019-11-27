@@ -1,6 +1,10 @@
 import pandas as pd
+import sys
+sys.path.append('../')
+
 import dimensionality_reduction_functions as dim_red
-from plotting_functions import colored_line_plot, colored_line_and_scatter_plot
+from plotting_functions import *
+
 
 # Number of PCA components
 ndim = 3
@@ -20,13 +24,13 @@ system_name1, direc1, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj
     dim_red.pathreducer(file, ndim, stereo_atoms=stereo_atoms_B, input_type="Distances")
 
 # Transforming new data into RD space
-new_data_df1 = dim_red.transform_new_data(new_file1, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+new_name1, new_data_df1 = dim_red.transform_new_data(new_file1, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
                                           aligned_original_coords, stereo_atoms=stereo_atoms_B, input_type="Distances")
-new_data_df2 = dim_red.transform_new_data(new_file2, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+new_name2, new_data_df2 = dim_red.transform_new_data(new_file2, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
                                           aligned_original_coords, stereo_atoms=stereo_atoms_B, input_type="Distances")
-new_data_df3 = dim_red.transform_new_data(new_file3, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+new_name3, new_data_df3 = dim_red.transform_new_data(new_file3, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
                                           aligned_original_coords, stereo_atoms=stereo_atoms_B, input_type="Distances")
-new_data_df4 = dim_red.transform_new_data(new_file4, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
+new_name4, new_data_df4 = dim_red.transform_new_data(new_file4, direc1 + "/new_data", ndim, D_pca_fit, D_pca_components, D_mean,
                                           aligned_original_coords, stereo_atoms=stereo_atoms_B, input_type="Distances")
 
 
@@ -39,30 +43,39 @@ D_pca_df2 = D_pca_df.drop(D_pca_df.index[106:184], axis=0)
 colored_line_and_scatter_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
           output_directory=direc1, imgname=(system_name1 + "_Distances_noMW"))
 
-<<<<<<< Updated upstream
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
-          new_data=new_data_df1, output_directory=direc1 + "/new_data",
-          imgname=(system_name1 + "_Distances_noMW_traj1_D"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
-          new_data=new_data_df2, output_directory=direc1 + "/new_data",
-          imgname=(system_name1 + "_Distances_noMW_traj2_A"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
-          new_data=new_data_df3, output_directory=direc1 + "/new_data",
-          imgname=(system_name1 + "_Distances_noMW_traj3_B"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], y1=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], y12=D_pca_df2[2],
-          new_data=new_data_df4, output_directory=direc1 + "/new_data",
-          imgname=(system_name1 + "_Distances_noMW_traj4_C"))
-=======
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
-                  same_axis=False, new_data=new_data_df1, output_directory=direc1 + "/new_data",
-                  imgname=(system_name1 + "_Distances_noMW_traj1_D"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
-                  same_axis=False, new_data=new_data_df2, output_directory=direc1 + "/new_data",
-                  imgname=(system_name1 + "_Distances_noMW_traj2_A"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
-                  same_axis=False, new_data=new_data_df3, output_directory=direc1 + "/new_data",
-                  imgname=(system_name1 + "_Distances_noMW_traj3_B"))
-colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
-                  same_axis=False, new_data=new_data_df4, output_directory=direc1 + "/new_data",
-                  imgname=(system_name1 + "_Distances_noMW_traj4_C"))
->>>>>>> Stashed changes
+# colored_line_plot(D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#           output_directory=direc1, imgname=(system_name1 + "_Distances_noMW_line"))
+
+# colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                   same_axis=False, new_data_x=new_data_df1[0], new_data_y=new_data_df1[1], new_data_z=new_data_df1[2], output_directory=direc1 + "/new_data",
+#                   imgname=(system_name1 + "_Distances_noMW_traj1_D"))
+# colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                   same_axis=False, new_data_x=new_data_df2[0], new_data_y=new_data_df2[1], new_data_z=new_data_df2[2], output_directory=direc1 + "/new_data",
+#                   imgname=(system_name1 + "_Distances_noMW_traj2_A"))
+# colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                   same_axis=False, new_data_x=new_data_df3[0], new_data_y=new_data_df3[1], new_data_z=new_data_df3[2], output_directory=direc1 + "/new_data",
+#                   imgname=(system_name1 + "_Distances_noMW_traj3_B"))
+# colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                   same_axis=False, new_data_x=new_data_df4[0], new_data_y=new_data_df4[1], new_data_z=new_data_df4[2], output_directory=direc1 + "/new_data",
+#                   imgname=(system_name1 + "_Distances_noMW_traj4_C"))
+
+# Plots to be used for gifs of MD data
+# for i in range(len(new_data_df1[0])):
+#     colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                       same_axis=False, new_data_x=new_data_df1[0], new_data_y=new_data_df1[1], new_data_z=new_data_df1[2], output_directory=direc1 + "/new_data",
+#                       imgname=(system_name1 + "_Distances_noMW_traj1_D_%s" % i), points_to_circle_new_data=[i])
+#
+# for i in range(len(new_data_df2[0])):
+#     colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                       same_axis=False, new_data_x=new_data_df2[0], new_data_y=new_data_df2[1], new_data_z=new_data_df2[2], output_directory=direc1 + "/new_data",
+#                       imgname=(system_name1 + "_Distances_noMW_traj2_A_%s" % i), points_to_circle_new_data=[i])
+
+# for i in range(len(new_data_df3[0])):
+#     colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+#                       same_axis=False, new_data_x=new_data_df3[0], new_data_y=new_data_df3[1], new_data_z=new_data_df3[2], output_directory=direc1 + "/new_data",
+#                       imgname=(system_name1 + "_Distances_noMW_traj3_B_%s" % i), points_to_circle_new_data=[i])
+
+for i in range(len(new_data_df4[0])):
+    colored_line_plot_projected_data(x=D_pca_df1[0], y=D_pca_df1[1], z=D_pca_df1[2], x2=D_pca_df2[0], y2=D_pca_df2[1], z2=D_pca_df2[2],
+                      same_axis=False, new_data_x=new_data_df4[0], new_data_y=new_data_df4[1], new_data_z=new_data_df4[2], output_directory=direc1 + "/new_data",
+                      imgname=(system_name1 + "_Distances_noMW_traj4_C_%s" % i), points_to_circle_new_data=[i])
