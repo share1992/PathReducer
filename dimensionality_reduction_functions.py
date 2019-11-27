@@ -1155,7 +1155,7 @@ def pathreducer_cartesians_directory_of_files(xyz_file_directory_path, n_dim, mw
                                                            aligned_coords.shape[1] * aligned_coords.shape[2]))
 
     # PCA
-    cartesians_pca, cartesians_pca_fit, cartesians_components, cartesians_mean, cartesians_values = \
+    cartesians_pca, cartesians_pca_fit, cartesians_components, cartesians_mean, cartesians_values, covariance_matrix = \
         pca_dr(matrix_for_pca, return_covariance=return_covariance)
     print("\n(2) Done with PCA of Cartesian coordinates!")
 
@@ -1277,7 +1277,7 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
     print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
     # PCA on distance matrix
-    d_pca, d_pca_fit, d_components, d_mean, d_values = pca_dr(d2_vector_matrix, return_covariance=return_covariance)
+    d_pca, d_pca_fit, d_components, d_mean, d_values, covariance_matrix = pca_dr(d2_vector_matrix, return_covariance=return_covariance)
     print("\n(2) Done with PCA of structures as distance matrices!")
 
     if print_distance_coefficients:
@@ -1453,7 +1453,7 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
     print("\n(1D) Generation of distance matrices and reshaping upper triangles into vectors done!")
 
     # PCA on distance matrix
-    d_pca, d_pca_fit, d_components, d_mean, d_values = pca_dr(d2_vector_matrix, return_covariance=return_covariance)
+    d_pca, d_pca_fit, d_components, d_mean, d_values, covariance_matrix = pca_dr(d2_vector_matrix, return_covariance=return_covariance)
 
     print("\n(2) Done with PCA of structures as interatomic distance matrices!")
 

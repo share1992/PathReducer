@@ -12,8 +12,8 @@ stereo_atoms_malon = [4, 7, 1, 8]
 points_to_circle = [0, 12, 24]
 
 # DISTANCES INPUT, NOT MASS-WEIGHTED. To mass-weight coordinates, add "MW=True" to function call.
-system_name, output_directory, pca, pca_fit, pca_components, mean, values, lengths, aligned_original_coords, blah, covariance_matrix = \
-    dim_red.pathreducer(input_path, ndim, input_type="Cartesians", return_covariance=True)
+system_name, output_directory, pca, pca_fit, pca_components, mean, values, lengths, aligned_original_coords, place_holder, covariance_matrix = \
+    dim_red.pathreducer(input_path, ndim, input_type="Distances", return_covariance=True)
 
 print(covariance_matrix)
 
