@@ -1264,9 +1264,6 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
         d2_vector_matrix_all = generate_and_reshape_ds_big_structures(coords_for_pca)
         d2_vector_matrix, selected_dist_atom_indexes = filter_important_distances(d2_vector_matrix_all, num_dists=num_dists)
 
-        # TODO: Make reconstruction possible by setting weights on all "non-important" distances to zero
-        # reconstruct = False
-
     else:
         d2_full_matrices = generate_distance_matrices(coords_for_pca)
         d2_vector_matrix = reshape_ds(d2_full_matrices)
