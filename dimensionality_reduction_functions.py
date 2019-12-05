@@ -62,6 +62,14 @@ def remove_atoms_by_type(atom_types_to_remove, atom_list, cartesians):
     return atom_list_sans_atoms, cartesians_sans_atoms
 
 
+def include_solvent_shell(atom_list, solute_indexes, cartesians, radius=10.0):
+
+
+    cartesians_solute_plus_solvent_shell = cartesians
+
+    return cartesians_solute_plus_solvent_shell
+
+
 def calculate_velocities(cartesians, timestep=1):
     """
     Calculate velocities at each timestep given Cartesian coordinates. Velocities at the first and last point are
