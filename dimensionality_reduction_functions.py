@@ -64,8 +64,28 @@ def remove_atoms_by_type(atom_types_to_remove, atom_list, cartesians):
 
 def include_solvent_shell(atom_list, solute_indexes, cartesians, radius=10.0):
 
+    num_atoms = len(atom_list)
+    atom_indexes_within_radius = []
+    distances = []
+    for index_a in solute_indexes:
+        for index_b in range(num_atoms):
+            if index_b not in solute_indexes:
+                # print(index_b)
+                # Calculate only distances between atoms with the most variance and all other atoms. Only keep
+                # distances less than x angstroms (default = 7.0) at the beginning (frame 0) of the trajectory
+                a = cartesians[0][index_a]
+                b = cartesians[0][index_b]
+                d = np.linalg.norm(a - b)
+                if d < radius and index_b not in atom_indexes_within_radius:
+                    # print("A: %s, B: %s, dist: %s" % (index_a, index_b, d))
+                    distances.append(d)
+                    atom_indexes_within_radius.append(index_b)
 
-    cartesians_solute_plus_solvent_shell = cartesians
+    # Generate sorted list of indexes of atoms involved the most in PC1 and all atoms within the distance threshold
+    top_atom_indexes = list(solute_indexes) + list(atom_indexes_within_radius)
+    top_atom_indexes.sort()
+
+    cartesians_solute_plus_solvent_shell = cartesians[:, top_atom_indexes, :]
 
     return cartesians_solute_plus_solvent_shell
 
@@ -147,7 +167,42 @@ def generate_distance_matrices(coordinates):
     return d2
 
 
+def calculate_dihedral(indexes, cartesians):
+    """
+    Calculates the dihedral angle between four atom indexes
+    :param indexes: list of atom indexes between which to calculate the angle. Four ints long.
+    :param cartesians: n x N x 3 array of Cartesian coordinates along the course of a trajectory.
+    :return: dihedral: n x 1 array of specified dihedral angle along course of trajectory
+    """
+    B1 = cartesians[:, indexes[1]] - cartesians[:, indexes[0]]
+    B2 = cartesians[:, indexes[2]] - cartesians[:, indexes[1]]
+    B3 = cartesians[:, indexes[3]] - cartesians[:, indexes[2]]
+
+    modB2 = np.sqrt((B2[:, 0] ** 2) + (B2[:, 1] ** 2) + (B2[:, 2] ** 2))
+
+    yAx = modB2 * B1[:, 0]
+    yAy = modB2 * B1[:, 1]
+    yAz = modB2 * B1[:, 2]
+
+    # CP2 is the crossproduct of B2 and B3
+    CP2 = np.cross(B2, B3)
+
+    termY = (yAx * CP2[:, 0]) + (yAy * CP2[:, 1]) + (yAz * CP2[:, 2])
+
+    # CP is the crossproduct of B1 and B2
+    CP = np.cross(B1, B2)
+
+    termX = (CP[:, 0] * CP2[:, 0]) + (CP[:, 1] * CP2[:, 1]) + (CP[:, 2] * CP2[:, 2])
+
+    dihedral = (180 / np.pi) * np.arctan2(termY, termX)
+
+    return dihedral
+
+
 def generate_dihedral_matrices(coordinates):
+
+    
+
     return coordinates
 
 
@@ -388,6 +443,28 @@ def generate_PC_matrices_selected_distances(n_dim, matrix_reduced, components, m
     return PCs_separate, PCs_combined
 
 
+def get_normal_modes_from_gaussian_output(path_to_log_file):
+
+    normal_modes = []
+
+    return normal_modes
+
+
+def change_basis_to_normal_modes(normal_modes, components):
+    """
+    Change the basis of the matrix of principal components to be in terms of normal modes (which are linear combinations
+    of Cartesian coordinates) rather than Cartesian coordinates. Does not work with an internal distances representation
+    of molecular structures
+    :param normal_modes: array of coefficients on Cartesian coordinates in normal modes of the molecule
+    :param components: array of coefficients on Cartesian coordinates in Principal Components from PCA
+    :return: components_normal_mode_basis: Principal Components from PCA expressed in a normal mode basis
+    """
+
+    components_normal_mode_basis = np.matmul(normal_modes, components)
+
+    return components_normal_mode_basis
+
+
 def inverse_transform_of_pcs(n_dim, matrix_reduced, components, mean):
     """
     Calculates the inverse transform of the PCs to see what the PCs correspond to in terms of geometric changes.
@@ -412,7 +489,7 @@ def inverse_transform_of_pcs(n_dim, matrix_reduced, components, mean):
     return PCs_separate, PCs_combined
 
 
-def inverse_transform_of_pcs_as_normal_modes(n_dim, matrix_reduced, components, mean, alpha=0.40):
+def inverse_transform_of_pcs_as_normal_modes(n_dim, matrix_reduced, components, mean, alpha=40):
     """
     Adds incremental amounts of each eigenvector to the mean structure to show the effect of individual eigenvectors
     on molecular structure. Different than the inverse_transform_of_pcs function as this function does NOT take into
@@ -1370,7 +1447,8 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
     print("\nDone generating output!")
 
     return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, aligned_coordinates, \
-           selected_dist_atom_indexes if 'selected_dist_atom_indexes' in locals() else None
+           selected_dist_atom_indexes if 'selected_dist_atom_indexes' in locals() else None, covariance_matrix if \
+               'covariance_matrix' in locals() else None
 
 
 def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, stereo_atoms=[1, 2, 3, 4], mw=False,
