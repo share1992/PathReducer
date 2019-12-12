@@ -929,7 +929,7 @@ def transform_new_data_only_top_distances(new_xyz_file_path, output_directory, n
 
 
 def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Cartesians", mw=False, reconstruct=True,
-                normal_modes=False, remove_atom_types=None, num_dists=75000):
+                normal_modes=False, remove_atom_types=None, num_dists=None):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -955,25 +955,49 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
                 pathreducer_cartesians_one_file(xyz_file_path, n_dim, mw=mw, reconstruct=reconstruct,
                                                 normal_modes=normal_modes, remove_atom_types=remove_atom_types)
         elif input_type == "Distances":
-            system_name, output_directory, pca, pca_fit, components, mean, values, aligned_coords, selected_dist_atom_indexes = \
+            if num_dists:
+                system_name, output_directory, pca, pca_fit, components, mean, values, aligned_coords, selected_dist_atom_indexes = \
+                    pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=stereo_atoms, mw=mw,
+                                                   reconstruct=reconstruct, normal_modes=normal_modes,
+                                                   remove_atom_types=remove_atom_types, num_dists=num_dists)
+                lengths = aligned_coords.shape[0]
+
+                return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, \
+                       selected_dist_atom_indexes
+            else:
+                system_name, output_directory, pca, pca_fit, components, mean, values, aligned_coords = \
                 pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=stereo_atoms, mw=mw,
                                                reconstruct=reconstruct, normal_modes=normal_modes,
                                               remove_atom_types=remove_atom_types,  num_dists=num_dists)
-        lengths = aligned_coords.shape[0]
+                lengths = aligned_coords.shape[0]
+
+                return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords
 
     elif os.path.isdir(xyz_file_path) is True:
         if input_type == "Cartesians":
             system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords = \
                 pathreducer_cartesians_directory_of_files(xyz_file_path, n_dim, mw=mw, reconstruct=reconstruct,
                                                           normal_modes=normal_modes, remove_atom_types=remove_atom_types)
-        elif input_type == "Distances":
-            system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords = \
-                pathreducer_distances_directory_of_files(xyz_file_path, n_dim, stereo_atoms=stereo_atoms, mw=mw,
-                                                         reconstruct=reconstruct, normal_modes=normal_modes,
-                                                         num_dists=num_dists, remove_atom_types=remove_atom_types)
 
-    return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, \
-           selected_dist_atom_indexes if 'selected_dist_atom_indexes' in locals() else None
+            return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords
+        elif input_type == "Distances":
+            if num_dists:
+                system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, \
+                selected_dist_atom_indexes = pathreducer_distances_directory_of_files(xyz_file_path, n_dim,
+                                                                                      stereo_atoms=stereo_atoms, mw=mw,
+                                                             reconstruct=reconstruct, normal_modes=normal_modes,
+                                                             num_dists=num_dists, remove_atom_types=remove_atom_types)
+
+                return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, \
+                       selected_dist_atom_indexes
+            else:
+                system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, \
+                selected_dist_atom_indexes = pathreducer_distances_directory_of_files(xyz_file_path, n_dim,
+                                                                                      stereo_atoms=stereo_atoms, mw=mw,
+                                                             reconstruct=reconstruct, normal_modes=normal_modes,
+                                                             num_dists=num_dists, remove_atom_types=remove_atom_types)
+
+                return system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords
 
 
 def pathreducer_cartesians_one_file(xyz_file_path, n_dim, mw=False, reconstruct=True, normal_modes=False, remove_atom_types=None):
@@ -1208,7 +1232,7 @@ def pathreducer_cartesians_directory_of_files(xyz_file_directory_path, n_dim, mw
 
 def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], mw=False,
                                    print_distance_coefficients=True, reconstruct=True, normal_modes=False,
-                                   num_dists=75000, remove_atom_types=None):
+                                   num_dists=None, remove_atom_types=None):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -1259,7 +1283,7 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
         coords_for_pca = aligned_coordinates
 
     if coords_for_pca.shape[1] > 1000:
-        # num_dists = 75000
+        num_dists = 75000
         print("Big matrix. Using the top %s distances for PCA..." % num_dists)
         d2_vector_matrix_all = generate_and_reshape_ds_big_structures(coords_for_pca)
         d2_vector_matrix, selected_dist_atom_indexes = filter_important_distances(d2_vector_matrix_all, num_dists=num_dists)
@@ -1355,13 +1379,16 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
 
     print("\nDone generating output!")
 
-    return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, aligned_coordinates, \
-           selected_dist_atom_indexes if 'selected_dist_atom_indexes' in locals() else None
+    if num_dists:
+        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, aligned_coordinates, \
+               selected_dist_atom_indexes
+    else:
+        return name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, aligned_coordinates,
 
 
 def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, stereo_atoms=[1, 2, 3, 4], mw=False,
                                              print_distance_coefficients=True, reconstruct=True, normal_modes=False,
-                                             num_dists=75000, remove_atom_types=None):
+                                             num_dists=None, remove_atom_types=None):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
@@ -1433,7 +1460,7 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
         coords_for_pca = coords_for_analysis
 
     if coords_for_pca.shape[1] > 1000:
-        # num_dists = num_dists
+        num_dists = 75000
         print("Big matrix. Using the top %s distances for PCA..." % num_dists)
         d2_vector_matrix_all = generate_and_reshape_ds_big_structures(coords_for_pca)
 
@@ -1536,8 +1563,12 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
 
     print("\nDone generating output!")
 
-    return system_name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths, \
-           aligned_coordinates
+    if num_dists:
+        return system_name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths, \
+               aligned_coordinates, selected_dist_atom_indexes
+    else:
+        return system_name, output_directory, d_pca, d_pca_fit, d_components, d_mean, d_values, file_lengths, \
+               aligned_coordinates
 
 
 def pathreducer_interactive():

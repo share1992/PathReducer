@@ -3,6 +3,8 @@
 
 __pycache__/
 
+*_output/
+
 acrylonitrile-N2O-dihedrals_for_paper_output/
 
 bifur_for_paper_output/
