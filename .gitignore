@@ -5,39 +5,13 @@ __pycache__/
 
 *_output/
 
-acrylonitrile-N2O-dihedrals_for_paper_output/
-
-bifur_for_paper_output/
-
-malondialdehydeTS_IRC_for_paper_output/
-
-Pummerer-gas-TS1-IRC_for_paper_output/
-
-SN2_all_for_paper_output/
-
-hiv1_protease_output/
-
-neuraminidase_output/
-
-trypsin_output/
-
 toy_class\.py
-
-SN2_all_for_paper_noMW_output/
 
 acrylonitrile-N2O-dihedrals_for_paper_noMW_eps_files/
 
-acrylonitrile-N2O-dihedrals_for_paper_noMW_output/
-
 bifur_for_paper_noMW_eps_files/
 
-bifur_for_paper_noMW_output/
-
-bifur_noMW_output/
-
 malondialdehydeTS_IRC_for_paper_noMW_eps_files/
-
-malondialdehydeTS_IRC_for_paper_noMW_output/
 
 outputs_150319/
 
@@ -45,53 +19,13 @@ SN2_all_for_paper_noMW_eps_files/
 
 \.idea/workspace\.xml
 
-malondialdehydeTS_IRC_noMW_output/
-
-SN2_all_noMW_output/
-
-Trimmed_noMW_output/
-
 \.idea/
-
-acrylonitrile-N2O-dihedrals_for_paper_MW_output/
-
-malondialdehydeTS_IRC_for_paper_MW_output/
-
-SN2_all_for_paper_MW_output/
-
-test_scripts/malonaldehyde_IRC_MW_output/
-
-test_scripts/acrylonitrile_scan_noMW_output/
-
-test_scripts/bifur_IRC_noMW_output/
-
-test_scripts/malonaldehyde_IRC_noMW_output/
-
-test_scripts/SN2_IRC_noMW_output/
 
 patricks_ircs\.py
 
-xyz_files_output/
-
 big_structure_test\.py
 
-bifur_IRC_Distances_noMW_output/
-
-bifurcation_Distances_noMW_output/
-
 gifs/
-
-Pummerer-gas-TS1-IRC_Cartesians_noMW_output/
-
-Pummerer-gas-TS1-IRC_Distances_noMW_output/
-
-Pummerer-gas-TS1-IRC_points88-142_Cartesians_noMW_output/
-
-Pummerer-gas-TS1-IRC_points88-142_Distances_noMW_output/
-
-ub3lyp-631gdlan-rxn8c-beta-TS1-rirc_Cartesians_noMW_output/
-
-test_scripts/malonaldehyde_IRC_Cartesians_noMW_output/
 
 protein.pdb
 
@@ -103,32 +37,6 @@ vibrational_energy_schematic.py
 
 .ipynb_checkpoints/
 
-malonaldehyde_IRC_Cartesians_MW_output/
-
-malonaldehyde_IRC_Cartesians_noMW_output/
-
-malonaldehyde_IRC_Distances_MW_output/
-
-malonaldehyde_IRC_Distances_noMW_output/
-
-test_scripts/acrylonitrile_scan_Distances_noMW_output/
-
-test_scripts/complete_TSS_cycN2_b3lyp_left_and_right_IRC_Distances_MW_output/
-
-test_scripts/complete_TSS_cycN2_b3lyp_left_and_right_IRC_Distances_noMW_output/
-
 test_scripts/complete_TSS_cycN2_b3lyp_left_and_right_IRC_Distances_noMW_output_inclN2/
-
-test_scripts/complete_TSS_cycN2_b3lyp_right_leaning_IRC_both_products_Distances_noMW_output/
-
-test_scripts/complete_TSS_cycN2_b3lyp_right_leaning_IRC_Distances_noMW_output/
-
-test_scripts/None_eps_files/
-
-test_scripts/traj3_Distances_noMW_output/
-
-test_scripts/traj4_Distances_noMW_output/
-
-test_scripts/traj5_Distances_noMW_output/
 
 unit_tests.py
