@@ -10,6 +10,7 @@ import os
 import sys
 import ntpath
 import plotting_functions
+import MDAnalysis
 from periodictable import *
 from sklearn import *
 from sympy import solve, Symbol
@@ -18,6 +19,39 @@ from sympy import solve, Symbol
 def path_leaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
+
+def determine_file_type(path):
+
+def read_gamess_file(path):
+    """ Reads in a GAMESS trj file from path using MDAnalysis. This DataFrame is then turned into a 3D array such that the
+    dimensions are (number of points) X (number of atoms) X 3 (Cartesian coordinates). The system name (based on the
+    filename), list of atoms in the system, and Cartesian coordinates are output.
+    :param path: path to xyz file to be read
+    :return extensionless_system_name: str
+            atom_list: numpy array
+            cartesians: numpy array
+    """
+    system_name = path_leaf(path)
+    print("File being read is: %s" % system_name)
+
+    extensionless_system_name = os.path.splitext(system_name)[0]
+
+    data = pd.read_csv(path, header=None, delim_whitespace=True, names=['a', 'b', 'c', 'd', 'e', 'f'])
+    n_atoms = int(data.loc[1][1])
+    n_lines_per_frame = int(n_atoms * 2 + 6)
+
+    data_array = np.array(data)
+
+    data_reshape = np.reshape(data_array, (int(data_array.shape[0]/n_lines_per_frame), n_lines_per_frame,
+                                           data_array.shape[1]))
+
+    cartesians = data_reshape[:, 5:(n_atoms + 5), 2:5].astype(np.float)
+    atom_list = data_reshape[0, 5:(n_atoms + 5), 0]
+
+    print(cartesians)
+    print(atom_list)
+
+    return extensionless_system_name, atom_list, cartesians
 
 
 def read_xyz_file(path):
@@ -460,7 +494,7 @@ def change_basis_to_normal_modes(normal_modes, components):
     :return: components_normal_mode_basis: Principal Components from PCA expressed in a normal mode basis
     """
 
-    components_normal_mode_basis = np.matmul(normal_modes, components)
+    components_normal_mode_basis = np.matmul(components, normal_modes)
 
     return components_normal_mode_basis
 

@@ -12,7 +12,7 @@ stereo_atoms_acryl = [1, 2, 3, 4]
 
 # DISTANCES INPUT
 system_name, output_directory, D_pca, D_pca_fit, D_pca_components, D_mean, D_values, traj_lengths, \
-aligned_original_coords = dim_red.pathreducer(file, ndim, stereo_atoms=stereo_atoms_acryl, input_type="Distances", mw=False, normal_modes=True)
+aligned_original_coords, atom_indexes, covar = dim_red.pathreducer(file, ndim, stereo_atoms=stereo_atoms_acryl, input_type="Distances", mw=False, normal_modes=True)
 
 # Plot results
 # D_pca_df = pd.DataFrame(D_pca)

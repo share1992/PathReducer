@@ -9,14 +9,15 @@ ndim = 3
 ############################################### EXAMPLE 1: MALONALDEHYDE ###############################################
 # Input file and list of atom numbers surrounding stereogenic center
 input_path = '/Users/ec18006/OneDrive - University of Bristol/CHAMPS/Research_Topics/cyclopropylidene_bifurcation/including_N2/optimizations_and_IRCs/complete_TSS_cycN2_b3lyp_left_and_right_IRC.xyz'
-new_file1 = '/Users/ec18006/OneDrive - University of Bristol/CHAMPS/Research_Topics/cyclopropylidene_bifurcation/including_N2/gas_phase_MD/progdyn_trajectories/n1/traj4.xyz'
+new_file1 = '/Users/ec18006/OneDrive - University of Bristol/CHAMPS/Research_Topics/cyclopropylidene_bifurcation/' \
+            'including_N2/gas_phase_MD/progdyn_trajectories_right_leaning/at_TSS/archive/n23_traj20.xyz'
 energies = '/Users/ec18006/OneDrive - University of Bristol/CHAMPS/Research_Topics/cyclopropylidene_bifurcation/including_N2/optimizations_and_IRCs/TSS_cycN2_b3lyp_left_and_right_energies.txt'
 
 
 # DISTANCES INPUT, NOT MASS-WEIGHTED. To mass-weight coordinates, add "MW=True" to function call.
 # system_name, output_directory, pca, pca_fit, pca_components, mean, values, lengths, aligned_original_coords = \
 #     dim_red.pathreducer(input_path, ndim, input_type="Distances")
-system_name, output_directory, pca, pca_fit, pca_components, mean, values, lengths, aligned_original_coords = \
+system_name, output_directory, pca, pca_fit, pca_components, mean, values, lengths, aligned_original_coords, blah, blah2 = \
     dim_red.pathreducer(input_path, ndim, input_type="Distances")
 
 # Plot results
@@ -79,16 +80,16 @@ ax1.set_ylim(min(y_all) - 0.1 * max(y_all), 1.1 * max(y_all))
 ax1.tick_params(labelsize=14, pad=10)
 
 # ax1.view_init(elev=20., azim=60)
-
-fig2 = plt.figure(figsize=(7, 6))
-ax2 = fig2.add_subplot(1, 1, 1, projection='3d')
-ax2.grid(True)
-
-energy_table = pd.read_csv(energies, delim_whitespace=True, header=None)
-energies = energy_table[4]
-relative_energies = (energy_table[4] - min(energy_table[4]))*627.51
-ax2.scatter(x, y, relative_energies, s=100, c=time, cmap='viridis', edgecolors='k')
-
+#
+# fig2 = plt.figure(figsize=(7, 6))
+# ax2 = fig2.add_subplot(1, 1, 1, projection='3d')
+# ax2.grid(True)
+#
+# energy_table = pd.read_csv(energies, delim_whitespace=True, header=None)
+# energies = energy_table[4]
+# relative_energies = (energy_table[4] - min(energy_table[4]))*627.51
+# ax2.scatter(x, y, relative_energies, s=100, c=time, cmap='viridis', edgecolors='k')
+#
 plt.show()
 
 
