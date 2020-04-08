@@ -20,7 +20,28 @@ def path_leaf(path):
     head, tail = ntpath.split(path)
     return tail or ntpath.basename(head)
 
-def determine_file_type(path):
+
+def read_xyz_file(path):
+    """ Reads in an xyz file from path as a DataFrame. This DataFrame is then turned into a 3D array such that the
+    dimensions are (number of points) X (number of atoms) X 3 (Cartesian coordinates). The system name (based on the
+    filename), list of atoms in the system, and Cartesian coordinates are output.
+    :param path: path to xyz file to be read
+    :return atom_list: numpy array
+            cartesians: numpy array
+    """
+    data = pd.read_csv(path, header=None, delim_whitespace=True, names=['atom', 'X', 'Y', 'Z'])
+    n_atoms = int(data.loc[0][0])
+    n_lines_per_frame = int(n_atoms + 2)
+
+    data_array = np.array(data)
+
+    data_reshape = np.reshape(data_array, (int(data_array.shape[0]/n_lines_per_frame), n_lines_per_frame,
+                                           data_array.shape[1]))
+    cartesians = data_reshape[:, 2::, 1::].astype(np.float)
+    atom_list = data_reshape[0, 2::, 0]
+
+    return atom_list, cartesians
+
 
 def read_gamess_file(path):
     """ Reads in a GAMESS trj file from path using MDAnalysis. This DataFrame is then turned into a 3D array such that the
@@ -31,10 +52,6 @@ def read_gamess_file(path):
             atom_list: numpy array
             cartesians: numpy array
     """
-    system_name = path_leaf(path)
-    print("File being read is: %s" % system_name)
-
-    extensionless_system_name = os.path.splitext(system_name)[0]
 
     data = pd.read_csv(path, header=None, delim_whitespace=True, names=['a', 'b', 'c', 'd', 'e', 'f'])
     n_atoms = int(data.loc[1][1])
@@ -48,36 +65,21 @@ def read_gamess_file(path):
     cartesians = data_reshape[:, 5:(n_atoms + 5), 2:5].astype(np.float)
     atom_list = data_reshape[0, 5:(n_atoms + 5), 0]
 
-    print(cartesians)
-    print(atom_list)
-
-    return extensionless_system_name, atom_list, cartesians
+    return atom_list, cartesians
 
 
-def read_xyz_file(path):
-    """ Reads in an xyz file from path as a DataFrame. This DataFrame is then turned into a 3D array such that the
-    dimensions are (number of points) X (number of atoms) X 3 (Cartesian coordinates). The system name (based on the
-    filename), list of atoms in the system, and Cartesian coordinates are output.
-    :param path: path to xyz file to be read
-    :return extensionless_system_name: str
-            atom_list: numpy array
-            cartesians: numpy array
-    """
+def determine_type_and_read_file(path):
+
     system_name = path_leaf(path)
     print("File being read is: %s" % system_name)
 
     extensionless_system_name = os.path.splitext(system_name)[0]
 
-    data = pd.read_csv(path, header=None, delim_whitespace=True, names=['atom', 'X', 'Y', 'Z'])
-    n_atoms = int(data.loc[0][0])
-    n_lines_per_frame = int(n_atoms + 2)
+    if system_name.endswith('.xyz'):
+        atom_list, cartesians = read_xyz_file(path)
 
-    data_array = np.array(data)
-
-    data_reshape = np.reshape(data_array, (int(data_array.shape[0]/n_lines_per_frame), n_lines_per_frame,
-                                           data_array.shape[1]))
-    cartesians = data_reshape[:, 2::, 1::].astype(np.float)
-    atom_list = data_reshape[0, 2::, 0]
+    elif system_name.endswith('.trj'):
+        atom_list, cartesians = read_gamess_file(path)
 
     return extensionless_system_name, atom_list, cartesians
 
@@ -842,7 +844,7 @@ def transform_new_data_cartesians(new_xyz_file_path, output_directory, n_dim, pc
 
     print("\nTransforming %s into reduced dimensional representation..." % new_xyz_file_path)
 
-    new_system_name, atoms, coordinates = read_xyz_file(new_xyz_file_path)
+    new_system_name, atoms, coordinates = determine_type_and_read_file(new_xyz_file_path)
 
     if remove_atom_types is not None:
         atoms, coordinates = remove_atoms_by_type(remove_atom_types, atoms, coordinates)
@@ -927,7 +929,7 @@ def transform_new_data_distances(new_xyz_file_path, output_directory, n_dim, pca
 
     print("\nTransforming %s into reduced dimensional representation..." % new_xyz_file_path)
 
-    new_system_name, atoms, coordinates = read_xyz_file(new_xyz_file_path)
+    new_system_name, atoms, coordinates = determine_type_and_read_file(new_xyz_file_path)
 
     if remove_atom_types is not None:
         atoms, coordinates = remove_atoms_by_type(remove_atom_types, atoms, coordinates)
@@ -1017,7 +1019,7 @@ def transform_new_data_only_top_distances(new_xyz_file_path, output_directory, n
 
     print("\nTransforming %s into reduced dimensional representation..." % new_xyz_file_path)
 
-    new_system_name, atoms, coordinates = read_xyz_file(new_xyz_file_path)
+    new_system_name, atoms, coordinates = determine_type_and_read_file(new_xyz_file_path)
 
     if remove_atom_types is not None:
         atoms, coordinates = remove_atoms_by_type(remove_atom_types, atoms, coordinates)
@@ -1091,7 +1093,7 @@ def pathreducer(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 4], input_type="Car
                 pathreducer_cartesians_directory_of_files(xyz_file_path, n_dim, mw=mw, reconstruct=reconstruct,
                                                           normal_modes=normal_modes, remove_atom_types=remove_atom_types, return_covariance=return_covariance)
         elif input_type == "Distances":
-            system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords, covariance_matrix = \
+            system_name, output_directory, pca, pca_fit, components, mean, values, lengths, aligned_coords = \
                 pathreducer_distances_directory_of_files(xyz_file_path, n_dim, stereo_atoms=stereo_atoms, mw=mw,
                                                          reconstruct=reconstruct, normal_modes=normal_modes,
                                                          num_dists=num_dists, remove_atom_types=remove_atom_types, return_covariance=return_covariance)
@@ -1127,7 +1129,7 @@ def pathreducer_cartesians_one_file(xyz_file_path, n_dim, mw=False, reconstruct=
         file_name_end = file_name_end + "_noMW"
 
     print("\nInput is one file.")
-    system_name, atoms, coordinates = read_xyz_file(xyz_file_path)
+    system_name, atoms, coordinates = determine_type_and_read_file(xyz_file_path)
 
     if remove_atom_types is not None:
         atoms, coordinates = remove_atoms_by_type(remove_atom_types, atoms, coordinates)
@@ -1239,7 +1241,7 @@ def pathreducer_cartesians_directory_of_files(xyz_file_directory_path, n_dim, mw
     i = 0
     for xyz_file in xyz_files:
         i = i + 1
-        name, atoms_one_file, coordinates = read_xyz_file(xyz_file)
+        name, atoms_one_file, coordinates = determine_type_and_read_file(xyz_file)
 
         if remove_atom_types is not None:
             atoms_one_file, coordinates = remove_atoms_by_type(remove_atom_types, atoms_one_file, coordinates)
@@ -1359,7 +1361,7 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
         file_name_end = file_name_end + "_noMW"
 
     print("\nInput is one file.")
-    name, atoms, coordinates = read_xyz_file(xyz_file_path)
+    name, atoms, coordinates = determine_type_and_read_file(xyz_file_path)
 
     if remove_atom_types is not None:
         atoms, coordinates = remove_atoms_by_type(remove_atom_types, atoms, coordinates)
@@ -1485,21 +1487,21 @@ def pathreducer_distances_one_file(xyz_file_path, n_dim, stereo_atoms=[1, 2, 3, 
                'covariance_matrix' in locals() else None
 
 
-def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, stereo_atoms=[1, 2, 3, 4], mw=False,
+def pathreducer_distances_directory_of_files(trajectory_file_directory_path, n_dim, stereo_atoms=[1, 2, 3, 4], mw=False,
                                              print_distance_coefficients=True, reconstruct=True, normal_modes=False,
                                              num_dists=75000, remove_atom_types=None, return_covariance=False):
     """
     Workhorse function for doing dimensionality reduction on xyz files. Dimensionality reduction can be done on the
     structures represented as Cartesian coordinates (easy/faster) or the structures represented as distances matrices
     (slower, but potentially more useful for certain systems that vary in non-linear ways, e.g., torsions).
-    :param xyz_file_directory_path: xyz file or directory filled with xyz files that will be used to generate the
+    :param trajectory_file_directory_path: xyz file or directory filled with xyz files that will be used to generate the
     reduced dimensional space, str
     :param n_dim: number of dimensions to reduce system to using PCA, int
     :param stereo_atoms: list of 4 atom indexes surrounding stereogenic center, ints
     :return: name, directory, pca, pca_fit, components, mean, values, lengths
     """
     # Check if input is directory (containing input files) or a single input file itself
-    assert os.path.isfile(xyz_file_directory_path) or os.path.isdir(xyz_file_directory_path), "No such file or " \
+    assert os.path.isfile(trajectory_file_directory_path) or os.path.isdir(trajectory_file_directory_path), "No such file or " \
                                                                                               "directory."
 
     print("\nInput is a directory of files.")
@@ -1514,19 +1516,23 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
     elif mw is False:
         file_name_end = file_name_end + "_noMW"
 
-    path = os.path.dirname(xyz_file_directory_path)
-    system_name = os.path.basename(path)
+    # path = os.path.dirname(trajectory_file_directory_path)
+    system_name = os.path.basename(trajectory_file_directory_path)
     print("\nDoing dimensionality reduction on files in %s" % system_name)
 
-    xyz_files = sorted(glob.glob(os.path.join(xyz_file_directory_path, '*.xyz')))
+    for fname in os.listdir(trajectory_file_directory_path):
+        if fname.endswith('.xyz'):
+            all_files = sorted(glob.glob(os.path.join(trajectory_file_directory_path, '*.xyz')))
+        elif fname.endswith('.trj'):
+            all_files = sorted(glob.glob(os.path.join(trajectory_file_directory_path, '*.trj')))
 
     names = []
     atoms = []
     file_lengths = []
     i = 0
-    for xyz_file in xyz_files:
+    for one_file in all_files:
         i = i + 1
-        name, atoms_one_file, coordinates = read_xyz_file(xyz_file)
+        name, atoms_one_file, coordinates = determine_type_and_read_file(one_file)
 
         if remove_atom_types is not None:
             atoms_one_file, coordinates = remove_atoms_by_type(remove_atom_types, atoms_one_file, coordinates)
@@ -1645,7 +1651,7 @@ def pathreducer_distances_directory_of_files(xyz_file_directory_path, n_dim, ste
         print("\n(7D) Done checking chirality of resultant structures!")
         print("\n(8D) Done aligning!")
 
-        for x in range(len(xyz_files)):
+        for x in range(len(all_files)):
             filename = names[x]
             if x == 0:
                 start_index = 0
